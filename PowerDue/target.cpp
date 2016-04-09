@@ -7,13 +7,12 @@
 
 #include "target.h"
 
-//target.cpp defines the functions of class TargetPowerDue
 
 // PowerDué connects to the Camera via Serial2
 TargetPowerDue::TargetPowerDue(){}
 
 bool TargetPowerDue::init(){
-  //Initializing the peripherals like the SD card and the Camera
+
   SD = MassStorage();
   SD.Init();
   Camera = Adafruit_VC0706(&Serial2);

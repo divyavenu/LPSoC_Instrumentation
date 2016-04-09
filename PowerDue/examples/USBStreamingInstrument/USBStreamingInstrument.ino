@@ -27,8 +27,6 @@ void setup(){
 void loop(){
   while(1){
     // wait for the sampling to start
-
-    //ONly after 1 write does this hold
     while(!PowerDue.bufferReady());
     PowerDue.writeBuffer(&SerialUSB);
   }

@@ -22,7 +22,6 @@
 #define PD_WHITE 7
 #define PD_OFF 8
 
-//When default LED needs to light up
 #define pd_rgb_led_init() { \
   pinMode(LED_RGB_RED, OUTPUT); \
   pinMode(LED_RGB_GREEN, OUTPUT); \
@@ -32,8 +31,6 @@
   digitalWrite(LED_RGB_BLUE, LOW); \
 }
 
-
-//Specified color needs to be shown in the PD
 #define pd_rgb_led(color) { \
   if(color == PD_RED || color == PD_YELLOW || color == PD_PURPLE || color == PD_WHITE){ \
     digitalWrite(LED_RGB_RED, HIGH); \
@@ -58,7 +55,7 @@
 #include <Arduino_Due_SD_HSCMI.h>
 #include <Adafruit_VC0706.h>
 
-//Target.cpp defines all the functions of the class.
+
 class TargetPowerDue
 {
   public:

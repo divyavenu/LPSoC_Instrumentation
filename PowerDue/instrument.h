@@ -40,7 +40,13 @@
 #define TASK_ID_PIN_3 48
 #define TASK_ID_VALID_PIN 44  //PC19
 
-//packet = timestamp 4 bytes, task ID 2 bytes to maintain even symmetry????
+#define COMMAND_PIN 44 //B14 GPIO 6
+
+
+//#define RX_PIN 15  //PD5 For interrupt when receiving commands
+
+
+//packet = timestamp 4 bytes, task ID 2 bytes to maintain even symmetry
 #define SYNC_BLOCK 0x5555
 
 #define HEADER_SIZE 12
@@ -63,6 +69,10 @@
 // Has to be a power of 2
 #define NUM_BUFFERS 4
 
+
+#define COMMAND_SIZE 10
+
+
 #include "Arduino.h"
 #include <Wire.h>
 
@@ -78,16 +88,20 @@ class InstrumentPowerDue
     void startSampling();
     void stopSampling();
     void startADC();
+    void SerialInit();
     bool bufferReady();
-    void writeBuffer(Serial_ * port);
+    void writeBuffer(HardwareSerial * port);
     void bufferFullInterrupt();
     void taskIdValidTrigger();
+    void CommandInterpreter();
     uint16_t readTaskID();
 
 
   private:
     volatile bool isSampling, isInterrupted;
     uint16_t buffer[NUM_BUFFERS][BUFFER_SIZE_FOR_USB+PADDING];
+    char command[COMMAND_SIZE];
+    int tempCommand;
     volatile int currentBuffer, nextBuffer;
     volatile uint16_t currentTask;
     uint32_t timeReference, currentTime;

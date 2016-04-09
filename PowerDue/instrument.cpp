@@ -11,27 +11,33 @@ void ValidTaskIDChange_Handler(){
   PowerDue.taskIdValidTrigger();
 }
 
+void CommandInput_Handler(){
+ PowerDue.CommandInterpreter();
+}
+
 InstrumentPowerDue::InstrumentPowerDue():currentBuffer(0), nextBuffer(0), currentTime(0), timeReference(0), currentTask(0), isSampling(false), isInterrupted(false){
 
 }
 
 void InstrumentPowerDue::init(int sample_rate){
   // Start I2C
-  Wire.begin(); 
+  Wire.begin();
 
   // Task ID Pin as Inputs
   pinMode(TASK_ID_PIN_0,INPUT);
   pinMode(TASK_ID_PIN_1,INPUT);
   pinMode(TASK_ID_PIN_2,INPUT);
   pinMode(TASK_ID_PIN_3,INPUT);
-  pinMode(TASK_ID_VALID_PIN,INPUT);
+  //pinMode(TASK_ID_VALID_PIN,INPUT);
+
+  //pinMode(RX_PIN,INPUT);
+  pinMode(COMMAND_PIN,INPUT);
 
 
-  //When the task valid pin goes from low to high, ISR is called
-  attachInterrupt(digitalPinToInterrupt(TASK_ID_VALID_PIN), ValidTaskIDChange_Handler, RISING);
+ // attachInterrupt(digitalPinToInterrupt(TASK_ID_VALID_PIN), ValidTaskIDChange_Handler, RISING);
+  attachInterrupt(digitalPinToInterrupt(COMMAND_PIN), CommandInput_Handler, RISING);
 
   // Start Channel 0 No Gain and No Offset
-  // For setting the offset - gain 25 , 0 amp
   pinMode(CH0GS0PIN, OUTPUT);
   pinMode(CH0GS1PIN, OUTPUT);
   digitalWrite(CH0GS0PIN, LOW);
@@ -58,10 +64,9 @@ void InstrumentPowerDue::init(int sample_rate){
   digitalWrite(CH3GS0PIN, LOW);
   digitalWrite(CH3GS1PIN, LOW);
   digitalWrite(CH3OFFSET_SHUTDOWN, OFFSET_DISABLE);
-
-// 
-  changeSamplingRate(sample_rate);
-  startADC();
+ // SerialInit();
+  //changeSamplingRate(sample_rate);
+ // startADC();
 }
 
 
@@ -72,9 +77,25 @@ uint16_t InstrumentPowerDue::readTaskID(){
       (digitalRead(TASK_ID_PIN_0)));
 }
 
+void InstrumentPowerDue::SerialInit(){
+
+   //enable adc interrupt
+  NVIC_EnableIRQ(USART3_IRQn);
+
+  //Set USART to normal mode, asynchronous
+  USART3->US_MR = 0x0;
+
+
+  //disable all interrupts except RXEND
+  USART3->US_IMR = 0x1;
+
+  SerialUSB.write("Initialzed USART");
+
+}
+
 void InstrumentPowerDue::startADC(){
 
-  //Returns the number of microseconds since the Arduino board began running the current program
+
   timeReference = micros();
   // Power measurement Controller Enable Peripheral ADC
   pmc_enable_periph_clk(ID_ADC);
@@ -85,7 +106,6 @@ void InstrumentPowerDue::startADC(){
   ADC->ADC_MR |=0x3;
 
   //enable 4 specific channels
-  //ch7, ch3, ch2, ch0
   ADC->ADC_CHER=0x8E;
 
   //enable adc interrupt
@@ -95,7 +115,6 @@ void InstrumentPowerDue::startADC(){
   NVIC_SetPriority(ADC_IRQn, 0);
 
   //disable all interrupts except RXEND
-  //Only accept end of receive buffer interrupt
   ADC->ADC_IDR=~(1<<27);
 
   //enable DMA-driven ADC RXEND interrupt
@@ -104,18 +123,18 @@ void InstrumentPowerDue::startADC(){
   //Initialize packet for DMA's buffer pointer
   currentTime = micros()-timeReference;
 
-  buffer[currentBuffer][0] = SYNC_BLOCK; //2bytes 5555
-  buffer[currentBuffer][1] = SYNC_BLOCK; //2bytes 5555
-  buffer[currentBuffer][2] = readTaskID(); 
-  buffer[currentBuffer][3] = (uint16_t)(currentTime >> 16); //upper half 16bits
-  buffer[currentBuffer][4] = (uint16_t)(0x0000FFFF & currentTime); //lower half 16bits
+  buffer[currentBuffer][0] = SYNC_BLOCK;
+  buffer[currentBuffer][1] = SYNC_BLOCK;
+  buffer[currentBuffer][2] = readTaskID();
+  buffer[currentBuffer][3] = (uint16_t)(currentTime >> 16);
+  buffer[currentBuffer][4] = (uint16_t)(0x0000FFFF & currentTime);
   buffer[currentBuffer][5] = (BUFFER_SIZE_FOR_USB-HEADER_SIZE);
-  buffer[currentBuffer][6] |= (uint16_t)0x1000; //2bytes making the 13th bit 1
+  buffer[currentBuffer][6] |= (uint16_t)0x1000;
 
   // ADC writes to the DMA buffer
-  ADC->ADC_RPR=(uint32_t)(&(buffer[currentBuffer][(HEADER_SIZE/2)-1])); //write 126 samples each 2 bytes, for 4 channels
+  ADC->ADC_RPR=(uint32_t)(&(buffer[currentBuffer][(HEADER_SIZE/2)-1]));
 
-  ADC->ADC_RCR=(BUFFER_SIZE_FOR_USB-HEADER_SIZE); //How many bytes to write
+  ADC->ADC_RCR=(BUFFER_SIZE_FOR_USB-HEADER_SIZE);
 
   // Initialize packet for DMA's next buffer pointer
   // ---------------
@@ -238,9 +257,10 @@ bool InstrumentPowerDue::bufferReady(){
   return currentBuffer!=nextBuffer;
 }
 
-void InstrumentPowerDue::writeBuffer(Serial_ * port){
+void InstrumentPowerDue::writeBuffer(HardwareSerial * port){
   int i=6;
   // send it
+  // ADC takes to start
   while(((buffer[currentBuffer][i])>>12)!=1){
     i++;
   };
@@ -335,6 +355,29 @@ void InstrumentPowerDue::taskIdValidTrigger(){
   (ADC->ADC_RCR)=0;
 
   startSampling();
+}
+void InstrumentPowerDue::CommandInterpreter(){
+  //stopSampling();
+  // Set packet length
+ // buffer[currentBuffer][5] = ((BUFFER_SIZE_FOR_USB-HEADER_SIZE)-(ADC->ADC_RCR));
+  //(ADC->ADC_RCR)=0;
+  //int x= Serial3.read();
+  //Serial3.readBytes(command,COMMAND_SIZE);
+  //Serial3.readBytes(tempCommand,COMMAND_SIZE);
+          //SerialUSB.print("Interrupt");
+  SerialUSB.print("Interrupt");
+// if (Serial3.available() > 0) {
+        // read the incoming byte:
+  tempCommand = Serial3.read();
+        //Or serialdata = Serial3.read();
+        // say what you got:
+  //SerialUSB.write("I received: ");
+  SerialUSB.write(tempCommand);
+
+  //SerialUSB.print("Inside the interpreter: ");
+  //writeBuffer(&Serial3);
+  //startSampling(); // Must be called after each function except stopSampling
+
 }
 
 void ADC_Handler()
