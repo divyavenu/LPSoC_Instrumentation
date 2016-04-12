@@ -7,13 +7,10 @@
 
 #include "instrument.h"
 
-void ValidTaskIDChange_Handler(){
+void ValidTaskIDChange_Handler() {
   PowerDue.taskIdValidTrigger();
 }
 
-void CommandInput_Handler(){
- PowerDue.CommandInterpreter();
-}
 
 InstrumentPowerDue::InstrumentPowerDue():currentBuffer(0), nextBuffer(0), currentTime(0), timeReference(0), currentTask(0), isSampling(false), isInterrupted(false){
 
@@ -30,12 +27,11 @@ void InstrumentPowerDue::init(int sample_rate){
   pinMode(TASK_ID_PIN_3,INPUT);
   //pinMode(TASK_ID_VALID_PIN,INPUT);
 
-  //pinMode(RX_PIN,INPUT);
-  pinMode(COMMAND_PIN,INPUT);
+  pinMode(RX_PIN,INPUT);
+  //pinMode(COMMAND_PIN,INPUT);
 
 
- // attachInterrupt(digitalPinToInterrupt(TASK_ID_VALID_PIN), ValidTaskIDChange_Handler, RISING);
-  attachInterrupt(digitalPinToInterrupt(COMMAND_PIN), CommandInput_Handler, RISING);
+   attachInterrupt(digitalPinToInterrupt(TASK_ID_VALID_PIN), ValidTaskIDChange_Handler, RISING);
 
   // Start Channel 0 No Gain and No Offset
   pinMode(CH0GS0PIN, OUTPUT);
@@ -64,7 +60,7 @@ void InstrumentPowerDue::init(int sample_rate){
   digitalWrite(CH3GS0PIN, LOW);
   digitalWrite(CH3GS1PIN, LOW);
   digitalWrite(CH3OFFSET_SHUTDOWN, OFFSET_DISABLE);
- // SerialInit();
+  SerialInit();
   //changeSamplingRate(sample_rate);
  // startADC();
 }
@@ -79,17 +75,29 @@ uint16_t InstrumentPowerDue::readTaskID(){
 
 void InstrumentPowerDue::SerialInit(){
 
+    //usart_enable_tx(USART3);
+    //usart_enable_rx(USART3);
+    //usart_enable_interrupt(USART3, US_IER_RXRDY);
+    
+    //usart_serial_init(USART3);
+    //configure_usart(1,9600);
+
+   USART3->US_CR = US_CR_RSTRX | US_CR_RSTTX | US_CR_RXDIS ;
+
+     //configure_usart()
    //enable adc interrupt
-  NVIC_EnableIRQ(USART3_IRQn);
+   NVIC_EnableIRQ(USART3_IRQn);
 
   //Set USART to normal mode, asynchronous
-  USART3->US_MR = 0x0;
+   USART3->US_MR = 0x0;
 
 
-  //disable all interrupts except RXEND
-  USART3->US_IMR = 0x1;
+  //Mask all interrupts except the  RXRDY interrupt
+    USART3->US_IMR = 0x1;
 
-  SerialUSB.write("Initialzed USART");
+   SerialUSB.write("Initialzed USART");
+   USART3->US_CR = US_CR_RXEN | UART_CR_TXEN;
+
 
 }
 
@@ -357,7 +365,7 @@ void InstrumentPowerDue::taskIdValidTrigger(){
   startSampling();
 }
 void InstrumentPowerDue::CommandInterpreter(){
-  //stopSampling();
+  stopSampling();
   // Set packet length
  // buffer[currentBuffer][5] = ((BUFFER_SIZE_FOR_USB-HEADER_SIZE)-(ADC->ADC_RCR));
   //(ADC->ADC_RCR)=0;
@@ -365,19 +373,24 @@ void InstrumentPowerDue::CommandInterpreter(){
   //Serial3.readBytes(command,COMMAND_SIZE);
   //Serial3.readBytes(tempCommand,COMMAND_SIZE);
           //SerialUSB.print("Interrupt");
-  SerialUSB.print("Interrupt");
+  //SerialUSB.print("Interrupt");
 // if (Serial3.available() > 0) {
         // read the incoming byte:
-  tempCommand = Serial3.read();
+  //tempCharacter = Serial3.read();
         //Or serialdata = Serial3.read();
         // say what you got:
   //SerialUSB.write("I received: ");
-  SerialUSB.write(tempCommand);
+  //SerialUSB.write(tempCharacter);
 
   //SerialUSB.print("Inside the interpreter: ");
   //writeBuffer(&Serial3);
   //startSampling(); // Must be called after each function except stopSampling
 
+}
+void USART3_Handler()
+{
+
+    SerialUSB.write("Interrupt");
 }
 
 void ADC_Handler()
