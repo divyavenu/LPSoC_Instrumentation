@@ -25,10 +25,15 @@ void setup(){
 }
 
 void loop(){
-  while(1){
-    // wait for the sampling to start
-    while(!PowerDue.bufferReady());
-    PowerDue.writeBuffer(&Serial3);
+//  while(1){
+//    // wait for the sampling to start
+//    while(!PowerDue.bufferReady());
+//    PowerDue.writeBuffer(&Serial3);
+//  }
+
+  if (Serial3.available() > 0) {
+      
   }
+  
 }
 

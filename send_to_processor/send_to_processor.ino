@@ -57,6 +57,12 @@ void print2Bytes(char * data, String base) {
 }
 
 void loop() {
+
+        uint16_t test[2];
+        test[0] = 0xAA;
+        test[1] = 0xBB;
+        SerialUSB.print(test[0], HEX);
+  
         // send data only when you receive data:
         if (Serial3.available() > 0) {
                 if (inSync) {
@@ -82,8 +88,10 @@ void loop() {
                     packetLen = (int)serial2Bytes[0] + (int)serial2Bytes[1]*256;
                     SerialUSB.print("[PAK SIZE (DEC)]: ");
                     SerialUSB.println(packetLen);
+                    
+//                    SerialUSB.println((uint8_t *)serial2Bytes);
                     dataCounter ++;                                      
-                  }     
+                  }
                   // reset counter
                   if (dataCounter == 4) {
                     dataCounter = 0;
@@ -96,8 +104,6 @@ void loop() {
                   SerialUSB.print(serialByte, HEX);
                   SerialUSB.print(" "); 
                 }
-
-                
                 if (serialByte == 0x66) {
                   syncBytes[0] = serialByte; 
                   syncCount ++;
