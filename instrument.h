@@ -96,12 +96,11 @@ class InstrumentPowerDue
     volatile uint16_t currentTask;
     uint32_t timeReference, currentTime;
     uint16_t buffer_size;
-    float total1;
-	float total2;
-	float total3;
-	float total4;
-	float average[4];
-	QueueHandle_t xQueue;
+    uint16_t total1;
+    uint16_t total2;
+    uint16_t total3;
+    uint16_t total4;
+    QueueHandle_t xQueue;
 };
 
 extern InstrumentPowerDue PowerDue;

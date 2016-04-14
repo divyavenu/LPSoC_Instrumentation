@@ -129,7 +129,7 @@ void InstrumentPowerDue::startADC(){
   buffer[nextBuffer][6] |= (uint16_t)0x1000;
 
   // next DMA buffer
-  ADC->ADC_RNPR=(uint32_t)(&(buffer[nextBuffer][(HEADER_SIZE/2)-1]));
+  ADC->ADC_RNPR=(uint32_t)(&(buffer[nextBuffer][(HEADER_SIZE/2)]));
 
   //next dma receive counter
   ADC->ADC_RNCR=(BUFFER_SIZE_FOR_USB-HEADER_SIZE);
@@ -386,19 +386,10 @@ void InstrumentPowerDue::writeAverage(void *packet){
 
   int m=6;
   int j =0;
-  float count1 =0;
-  float count2 = 0;
-  float count3 = 0;
-  float count4 = 0;
-  float voltage1 = 0;
-  float voltage2 = 0;
-  float voltage3 = 0;
-  float voltage4 = 0;
-   average[3] =0;
-   average[2] = 0;
-  average[1] = 0;
-  average[0] = 0;
-  int r = 0;
+  uint16_t count1 =0;
+  uint16_t count2 = 0;
+  uint16_t count3 = 0;
+  uint16_t count4 = 0;
   total1  = 0;
   total2  = 0;
   total3  = 0;
@@ -412,11 +403,11 @@ void InstrumentPowerDue::writeAverage(void *packet){
   m-=6;
   if(m){
     buffer[currentBuffer][5+m] = (buffer[currentBuffer][5]-2*m);
-    buffer[currentBuffer][4+m] = buffer[currentBuffer][4];
-    buffer[currentBuffer][3+m] = buffer[currentBuffer][3];
+    //buffer[currentBuffer][4+m] = buffer[currentBuffer][4];
+    //buffer[currentBuffer][3+m] = buffer[currentBuffer][3];
     buffer[currentBuffer][2+m] = buffer[currentBuffer][2];
-    buffer[currentBuffer][1+m] = buffer[currentBuffer][1];
-    buffer[currentBuffer][0+m] = buffer[currentBuffer][0];
+    //buffer[currentBuffer][1+m] = buffer[currentBuffer][1];
+    //buffer[currentBuffer][0+m] = buffer[currentBuffer][0];
   }
   
   
@@ -435,7 +426,7 @@ void InstrumentPowerDue::writeAverage(void *packet){
 	//SerialUSB.println((buffer[currentBuffer][(7+m) ] & 0b1111000000000000));
     
      if (buffer_size > 0){
-	 total1 = total1 + (float)(buffer[currentBuffer][(6+m) + j] & 0b0000111111111111) ;
+	 total1 = total1 + (uint16_t)(buffer[currentBuffer][(6+m) + j] & 0b0000111111111111) ;
 	 //SerialUSB.println((float)(buffer[currentBuffer][(6+m) + j] & 0b0000111111111111));
 	 //SerialUSB.println(total1);
 	 //SerialUSB.println((buffer[currentBuffer][(7+m) ] & 0b1111000000000000));
@@ -444,36 +435,47 @@ void InstrumentPowerDue::writeAverage(void *packet){
 	 
 	 }
 	 if (buffer_size > 0){
-	 total2 = total2 + (float)(buffer[currentBuffer][(7+m)+ j] & 0b0000111111111111);
+	 total2 = total2 + (uint16_t)(buffer[currentBuffer][(7+m)+ j] & 0b0000111111111111);
 	 buffer_size = buffer_size - 1;
 	 //SerialUSB.println((buffer[currentBuffer][(7+m) ] & 0b1111000000000000));
 	 count2++;
 	 }
 	 if (buffer_size > 0){
-	 total3 = total3 + (float)(buffer[currentBuffer][(8+m) + j]& 0b0000111111111111);
+	 total3 = total3 + (uint16_t)(buffer[currentBuffer][(8+m) + j]& 0b0000111111111111);
 	 buffer_size = buffer_size - 1;
 	 count3++;
 	 }
 	 if (buffer_size > 0 ){
-	 total4 = total4 + (float)(buffer[currentBuffer][(9+m) + j]& 0b0000111111111111);
+	 total4 = total4 + (uint16_t)(buffer[currentBuffer][(9+m) + j]& 0b0000111111111111);
 	 buffer_size = buffer_size - 1;
 	 count4++;
 	 }
 	 j = j+4;
 	}
     
-	buffer[currentBuffer][5+m] =  ((BUFFER_SIZE_FOR_AVERAGE-HEADER_SIZE)-2*m);
-	buffer[currentBuffer][6+m] = ((buffer[currentBuffer][6+m] & 0b1111000000000000) |((uint16_t)(total1 /count1)));
-	buffer[currentBuffer][7+m] = ((buffer[currentBuffer][7+m] & 0b1111000000000000) |((uint16_t)(total2 /count2)));
-	buffer[currentBuffer][8+m] = ((buffer[currentBuffer][8+m] & 0b1111000000000000) |((uint16_t)(total3 /count3)));
-	buffer[currentBuffer][9+m] = ((buffer[currentBuffer][9+m] & 0b1111000000000000) |((uint16_t)(total4 /count4)));
-
-  *(uint8_t *)packet = (uint8_t)buffer[currentBuffer][2];
-  *(uint16_t *)(packet+1) = buffer[currentBuffer][6+m];
-  *(uint16_t *)(packet+3) = buffer[currentBuffer][7+m];
-  *(uint16_t *)(packet+5) = buffer[currentBuffer][8+m];
-  *(uint16_t *)(packet+7) = buffer[currentBuffer][9+m];
-	
+  //buffer[currentBuffer][5+m] =  ((BUFFER_SIZE_FOR_AVERAGE-HEADER_SIZE)-2*m);
+  
+  total1 /= count1;
+  total2 /= count2;
+  total3 /= count3;
+  total4 /= count4;
+  
+  *(uint8_t *)packet = (uint8_t)buffer[currentBuffer][2+m];
+  
+  *(uint8_t *)(packet+1) = (uint8_t)(((buffer[currentBuffer][6+m] & 0b1111000000000000) |((uint16_t)(total1))) >> 8 );
+  *(uint8_t *)(packet+2) = (uint8_t)(((uint16_t)total1) &0b0000000011111111);
+  *(uint8_t *)(packet+3) = (uint8_t)(((buffer[currentBuffer][7+m] & 0b1111000000000000) |((uint16_t)(total2))) >> 8 );
+  *(uint8_t *)(packet+4) = (uint8_t)(((uint16_t)total2) &0b0000000011111111);
+  *(uint8_t *)(packet+5) = (uint8_t)(((buffer[currentBuffer][8+m] & 0b1111000000000000) |((uint16_t)(total3))) >> 8 );
+  *(uint8_t *)(packet+6) = (uint8_t)(((uint16_t)total3) &0b0000000011111111);
+  *(uint8_t *)(packet+7) = (uint8_t)(((buffer[currentBuffer][9+m] & 0b1111000000000000) |((uint16_t)(total4))) >> 8 );
+	*(uint8_t *)(packet+8) = (uint8_t)(((uint16_t)total4) &0b0000000011111111);
+  /*
+  *(uint16_t *)(packet+1) = ((buffer[currentBuffer][6+m] & 0b1111000000000000) |((uint16_t)(total1 /count1)));
+  *(uint16_t *)(packet+3) = ((buffer[currentBuffer][7+m] & 0b1111000000000000) |((uint16_t)(total2 /count2)));
+  *(uint16_t *)(packet+5) = ((buffer[currentBuffer][8+m] & 0b1111000000000000) |((uint16_t)(total3 /count3)));
+  *(uint16_t *)(packet+7) = ((buffer[currentBuffer][9+m] & 0b1111000000000000) |((uint16_t)(total4 /count4)));
+  */
   //port->write((uint8_t *)&(buffer[currentBuffer][m]),BUFFER_SIZE_FOR_AVERAGE);
   currentBuffer=(currentBuffer+1)&(NUM_BUFFERS-1);
   
