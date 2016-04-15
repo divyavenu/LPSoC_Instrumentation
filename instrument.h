@@ -82,7 +82,6 @@ class InstrumentPowerDue
     void startADC();
     bool bufferReady();
     void writeBuffer(Serial_ * port);
-    void writePacket(void *packet);
     void bufferFullInterrupt();
     void taskIdValidTrigger();
     uint16_t readTaskID();
@@ -96,10 +95,10 @@ class InstrumentPowerDue
     volatile uint16_t currentTask;
     uint32_t timeReference, currentTime;
     uint16_t buffer_size;
-    uint16_t total1;
-    uint16_t total2;
-    uint16_t total3;
-    uint16_t total4;
+    uint32_t total1;
+    uint32_t total2;
+    uint32_t total3;
+    uint32_t total4;
     QueueHandle_t xQueue;
 };
 

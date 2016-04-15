@@ -1,3 +1,12 @@
+/*
+*
+* Firmware for the PowerDué (Based on the Arduino Due)
+* Carnegie Mellon University Silicon Valley
+* Version: 0.0.1
+*
+*/
+
+// Used for Selecting between Target and Instrument in <PowerDue.h>
 #define INSTRUMENT_POWER_DUE
 #include <PowerDue.h>
 #include <FreeRTOS_ARM.h>
@@ -16,11 +25,12 @@ int parCounter;
 boolean parWrite;
 int parLen;
 
-/* Command Interpreter task */
+char sync[5] = "5566";
+/* Dammy task for Interpreter */
 static void commandInterpreter(void *arg) {
   while(1) {
-    if (Serial3.available()){
-      char c = Serial3.read();
+    if (SerialUSB.available()){
+      char c = SerialUSB.read();
       command_parser(c);
     } else {
       taskYIELD();
@@ -28,50 +38,54 @@ static void commandInterpreter(void *arg) {
   }
 }
 
-//------------------------------------------------------------------------------
 /* PacketSender task stores the averaged samples in the packet and sends packets to the terget */
-static void packetSender(void *arg) {
-  char sync[5] = "5566";
-  //char *packet = (char *)malloc(SAMPLE_SIZE*SAMPLE_NUMBER+1);
-  char packet[91];
-  
+static void packetSender(void *arg) {  
+  char *packet = (char *)malloc(SAMPLE_SIZE*SAMPLE_NUMBER); 
+
   while(1) {
     for (int i = 0; i < SAMPLE_NUMBER; i++){
       // Wait until it gets a queue which sent by the bufferFullInterrupt 
       PowerDue.queueReceive();
       PowerDue.writeAverage(packet+i*SAMPLE_SIZE);
-//      for (int j = 1; j < 8; j+=2){
-//        SerialUSB.print((*(uint16_t *)(packet+i*SAMPLE_SIZE+j))&0x0FFF, DEC);
-//        SerialUSB.print("  ");
-//      }  
-//      SerialUSB.println();  
-    }    
+      for (int j = 1; j < 8; j+=2){
+        SerialUSB.print((*(uint16_t *)(packet+i*SAMPLE_SIZE+j))&0x0FFF, DEC);
+        SerialUSB.print("  ");
+      }  
+      SerialUSB.println();  
+    }
+    
     if (startFlag) {
-      Serial3.write(sync, 4);
-      Serial3.write(packet, SAMPLE_SIZE*SAMPLE_NUMBER);
-    }    
+      SerialUSB.write(sync, 4);
+      //SerialUSB.write(packet, SAMPLE_SIZE*SAMPLE_NUMBER);
+
+      //SerialUSB.print((uint8_t *)packet, HEX);
+      SerialUSB.println();
+    }
+    //SerialUSB.write(packet, SAMPLE_SIZE*SAMPLE_NUMBER);
+    
   }
 }
 
-//------------------------------------------------------------------------------
 void setup(){
   cmdCounter = 0;
   cmdWrite = false;
   startFlag = false;
+
   parCounter = 0;
-  parWrite = false;
+  parWrite = true;
   parLen = 0;
+
   
-  Serial3.begin(9600);
-  while(!Serial3);
+  SerialUSB.begin(0);
+  while(!SerialUSB);
+  //Serial3.begin(9600);
+  //while(!Serial3);
   PowerDue.init(SAMPLE_RATE);
-//  PowerDue.startSampling();
-//  SerialUSB.begin(0);
-//  while(!SerialUSB);
+  //PowerDue.startSampling();
   
   xTaskCreate(commandInterpreter, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, NULL);
   xTaskCreate(packetSender, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, NULL); 
-  
+  SerialUSB.println("start");
   vTaskStartScheduler();
   SerialUSB.println("Insufficient RAM");
   while(1);
@@ -81,7 +95,7 @@ void loop(){
 
 }
 
-//------------------------------------------------------------------------------
+
 void command_parser(char c) {
   // the lenghth of parameter (in byte)
   // so know how many bytes to read
