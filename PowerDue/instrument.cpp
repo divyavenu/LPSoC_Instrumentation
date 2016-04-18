@@ -27,9 +27,6 @@ void InstrumentPowerDue::init(int sample_rate){
   pinMode(TASK_ID_PIN_3,INPUT);
   //pinMode(TASK_ID_VALID_PIN,INPUT);
 
-  pinMode(RX_PIN,INPUT);
-  //pinMode(COMMAND_PIN,INPUT);
-
 
    attachInterrupt(digitalPinToInterrupt(TASK_ID_VALID_PIN), ValidTaskIDChange_Handler, RISING);
 
@@ -75,14 +72,6 @@ uint16_t InstrumentPowerDue::readTaskID(){
 
 void InstrumentPowerDue::SerialInit(){
 
-    //usart_enable_tx(USART3);
-    //usart_enable_rx(USART3);
-    //usart_enable_interrupt(USART3, US_IER_RXRDY);
-    
-    //usart_serial_init(USART3);
-    //configure_usart(1,9600);
-
-   USART3->US_CR = US_CR_RSTRX | US_CR_RSTTX | US_CR_RXDIS ;
 
      //configure_usart()
    //enable adc interrupt
@@ -95,9 +84,8 @@ void InstrumentPowerDue::SerialInit(){
   //Mask all interrupts except the  RXRDY interrupt
     USART3->US_IMR = 0x1;
 
-   SerialUSB.write("Initialzed USART");
-   USART3->US_CR = US_CR_RXEN | UART_CR_TXEN;
-
+    SerialUSB.println(USART3->US_RHR);
+    SerialUSB.println("Initialzed USART");
 
 }
 
@@ -365,33 +353,23 @@ void InstrumentPowerDue::taskIdValidTrigger(){
   startSampling();
 }
 void InstrumentPowerDue::CommandInterpreter(){
-  stopSampling();
-  // Set packet length
- // buffer[currentBuffer][5] = ((BUFFER_SIZE_FOR_USB-HEADER_SIZE)-(ADC->ADC_RCR));
-  //(ADC->ADC_RCR)=0;
-  //int x= Serial3.read();
-  //Serial3.readBytes(command,COMMAND_SIZE);
-  //Serial3.readBytes(tempCommand,COMMAND_SIZE);
-          //SerialUSB.print("Interrupt");
-  //SerialUSB.print("Interrupt");
-// if (Serial3.available() > 0) {
-        // read the incoming byte:
-  //tempCharacter = Serial3.read();
-        //Or serialdata = Serial3.read();
-        // say what you got:
-  //SerialUSB.write("I received: ");
-  //SerialUSB.write(tempCharacter);
-
-  //SerialUSB.print("Inside the interpreter: ");
-  //writeBuffer(&Serial3);
-  //startSampling(); // Must be called after each function except stopSampling
-
+  
+   while (Serial3.available()) {
+        char c = Serial3.read();
+        SerialUSB.println(c, HEX);
+      }
 }
+
 void USART3_Handler()
 {
-
-    SerialUSB.write("Interrupt");
+   SerialUSB.write("Buffer:"); 
+   SerialUSB.print(USART3->US_RHR); //Receive buffer holder
+   // PowerDue.CommandInterpreter();
+  
+    char c = Serial3.read();    //Data
+    SerialUSB.print(c);         
 }
+
 
 void ADC_Handler()
 {
