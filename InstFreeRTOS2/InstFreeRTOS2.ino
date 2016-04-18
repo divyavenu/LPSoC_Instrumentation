@@ -32,20 +32,16 @@ static void commandInterpreter(void *arg) {
 /* PacketSender task stores the averaged samples in the packet and sends packets to the terget */
 static void packetSender(void *arg) {
   char sync[5] = "5566";
-  //char *packet = (char *)malloc(SAMPLE_SIZE*SAMPLE_NUMBER+1);
   char packet[91];
   
   while(1) {
     for (int i = 0; i < SAMPLE_NUMBER; i++){
       // Wait until it gets a queue which sent by the bufferFullInterrupt 
       PowerDue.queueReceive();
-      PowerDue.writeAverage(packet+i*SAMPLE_SIZE);
-//      for (int j = 1; j < 8; j+=2){
-//        SerialUSB.print((*(uint16_t *)(packet+i*SAMPLE_SIZE+j))&0x0FFF, DEC);
-//        SerialUSB.print("  ");
-//      }  
-//      SerialUSB.println();  
-    }    
+      // Skip average if there is no sampling data in the current buffer
+      if (!PowerDue.writeAverage(packet+i*SAMPLE_SIZE))
+        i--;  
+    } 
     if (startFlag) {
       Serial3.write(sync, 4);
       Serial3.write(packet, SAMPLE_SIZE*SAMPLE_NUMBER);
@@ -66,6 +62,7 @@ void setup(){
   while(!Serial3);
   PowerDue.init(SAMPLE_RATE);
 //  PowerDue.startSampling();
+//  startFlag = true;
 //  SerialUSB.begin(0);
 //  while(!SerialUSB);
   

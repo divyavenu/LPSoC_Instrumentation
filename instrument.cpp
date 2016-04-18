@@ -355,18 +355,17 @@ void ADC_Handler()
 
 }
 
-void InstrumentPowerDue::writeAverage(void *packet){
-
-  int m=6;
-  int j =0;
-  uint16_t count1 =0;
+bool InstrumentPowerDue::writeAverage(void *packet){
+  int m = 6;
+  int j = 0;
+  uint16_t count1 = 0;
   uint16_t count2 = 0;
   uint16_t count3 = 0;
   uint16_t count4 = 0;
-  total1  = 0;
-  total2  = 0;
-  total3  = 0;
-  total4  = 0;
+  uint32_t total1 = 0;
+  uint32_t total2 = 0;
+  uint32_t total3 = 0;
+  uint32_t total4 = 0;
 
   while(((buffer[currentBuffer][m])>>12)!=1){
     m++;
@@ -380,61 +379,66 @@ void InstrumentPowerDue::writeAverage(void *packet){
     //buffer[currentBuffer][1+m] = buffer[currentBuffer][1];
     //buffer[currentBuffer][0+m] = buffer[currentBuffer][0];
   }
-  
-  
-    buffer_size = ((buffer[currentBuffer][5]-2*m)/2);
+   
+  buffer_size = ((buffer[currentBuffer][5]-2*m)/2);
 
 	while ( buffer_size > 0){ 
     
-    if (buffer_size > 0){
-      total1 = total1 + (buffer[currentBuffer][(6+m) + j] & 0b0000111111111111) ;
-      buffer_size = buffer_size - 1;
-      count1++; 	 
-    }
-    if (buffer_size > 0){
-      total2 = total2 + (buffer[currentBuffer][(7+m)+ j] & 0b0000111111111111);
-      buffer_size = buffer_size - 1;
-      count2++;
-    }
-    if (buffer_size > 0){
-      total3 = total3 + (buffer[currentBuffer][(8+m) + j]& 0b0000111111111111);
-      buffer_size = buffer_size - 1;
-      count3++;
-    }
-    if (buffer_size > 0 ){
-      total4 = total4 + (buffer[currentBuffer][(9+m) + j]& 0b0000111111111111);
-      buffer_size = buffer_size - 1;
-      count4++;
-    }
-    j = j+4;
+	    if (buffer_size > 0){
+	      total1 = total1 + (buffer[currentBuffer][(6+m) + j] & 0b0000111111111111) ;
+	      buffer_size = buffer_size - 1;
+	      count1++; 	 
+	    }
+	    if (buffer_size > 0){
+	      total2 = total2 + (buffer[currentBuffer][(7+m)+ j] & 0b0000111111111111);
+	      buffer_size = buffer_size - 1;
+	      count2++;
+	    }
+	    if (buffer_size > 0){
+	      total3 = total3 + (buffer[currentBuffer][(8+m) + j]& 0b0000111111111111);
+	      buffer_size = buffer_size - 1;
+	      count3++;
+	    }
+	    if (buffer_size > 0 ){
+	      total4 = total4 + (buffer[currentBuffer][(9+m) + j]& 0b0000111111111111);
+	      buffer_size = buffer_size - 1;
+	      count4++;
+	    }
+	    j = j+4;
 	}
     
   //buffer[currentBuffer][5+m] =  ((BUFFER_SIZE_FOR_AVERAGE-HEADER_SIZE)-2*m);
-  
-  total1 /= count1;
-  total2 /= count2;
-  total3 /= count3;
-  total4 /= count4;
-  
-  *(uint8_t *)packet = (uint8_t)buffer[currentBuffer][2+m]; 
-  *(uint8_t *)(packet+1) = (uint8_t)(((0x1000) |((uint16_t)(total1))) >> 8 );
-  *(uint8_t *)(packet+2) = (uint8_t)(((uint16_t)total1) & 0x00FF);
-  *(uint8_t *)(packet+3) = (uint8_t)(((0x2000) |((uint16_t)(total2))) >> 8 );
-  *(uint8_t *)(packet+4) = (uint8_t)(((uint16_t)total2) & 0x00FF);
-  *(uint8_t *)(packet+5) = (uint8_t)(((0x3000) |((uint16_t)(total3))) >> 8 );
-  *(uint8_t *)(packet+6) = (uint8_t)(((uint16_t)total3) & 0x00FF);
-  *(uint8_t *)(packet+7) = (uint8_t)(((0x7000) |((uint16_t)(total4))) >> 8 );
-  *(uint8_t *)(packet+8) = (uint8_t)(((uint16_t)total4) & 0x00FF);
+ 	if (count1 && count2 && count3 && count4){ 
+		total1 /= count1;
+		total2 /= count2;
+		total3 /= count3;
+		total4 /= count4;
+	  
+		*(uint8_t *)packet = (uint8_t)buffer[currentBuffer][2+m]; 
+		// *(uint8_t *)(packet+1) = (uint8_t)(((0x1000) |((uint16_t)(total1))) >> 8 );
+		// *(uint8_t *)(packet+2) = (uint8_t)(((uint16_t)total1) & 0x00FF);
+		// *(uint8_t *)(packet+3) = (uint8_t)(((0x2000) |((uint16_t)(total2))) >> 8 );
+		// *(uint8_t *)(packet+4) = (uint8_t)(((uint16_t)total2) & 0x00FF);
+		// *(uint8_t *)(packet+5) = (uint8_t)(((0x3000) |((uint16_t)(total3))) >> 8 );
+		// *(uint8_t *)(packet+6) = (uint8_t)(((uint16_t)total3) & 0x00FF);
+		// *(uint8_t *)(packet+7) = (uint8_t)(((0x7000) |((uint16_t)(total4))) >> 8 );
+		// *(uint8_t *)(packet+8) = (uint8_t)(((uint16_t)total4) & 0x00FF);
+		*(uint8_t *)(packet+1) = (uint8_t)(((buffer[currentBuffer][6+m] & 0xF000) |((uint16_t)(total1))) >> 8 );
+		*(uint8_t *)(packet+2) = (uint8_t)(((uint16_t)total1) & 0x00FF);
+		*(uint8_t *)(packet+3) = (uint8_t)(((buffer[currentBuffer][7+m] & 0xF000) |((uint16_t)(total2))) >> 8 );
+		*(uint8_t *)(packet+4) = (uint8_t)(((uint16_t)total2) & 0x00FF);
+		*(uint8_t *)(packet+5) = (uint8_t)(((buffer[currentBuffer][8+m] & 0xF000) |((uint16_t)(total3))) >> 8 );
+		*(uint8_t *)(packet+6) = (uint8_t)(((uint16_t)total3) & 0x00FF);
+		*(uint8_t *)(packet+7) = (uint8_t)(((buffer[currentBuffer][9+m] & 0xF000) |((uint16_t)(total4))) >> 8 );
+		*(uint8_t *)(packet+8) = (uint8_t)(((uint16_t)total4) & 0x00FF);
+		// *(uint16_t *)(packet+1) = (buffer[currentBuffer][6+m] & 0b1111000000000000) | total1;
+		// *(uint16_t *)(packet+3) = (buffer[currentBuffer][7+m] & 0b1111000000000000) | total2;
+		// *(uint16_t *)(packet+5) = (buffer[currentBuffer][8+m] & 0b1111000000000000) | total3;
+		// *(uint16_t *)(packet+7) = (buffer[currentBuffer][9+m] & 0b1111000000000000) | total4;
+	}
 
-  // *(uint16_t *)(packet+1) = (buffer[currentBuffer][6+m] & 0b1111000000000000) | total1;
-  // *(uint16_t *)(packet+3) = (buffer[currentBuffer][7+m] & 0b1111000000000000) | total2;
-  // *(uint16_t *)(packet+5) = (buffer[currentBuffer][8+m] & 0b1111000000000000) | total3;
-  // *(uint16_t *)(packet+7) = (buffer[currentBuffer][9+m] & 0b1111000000000000) | total4;
-  
-  //port->write((uint8_t *)&(buffer[currentBuffer][m]),BUFFER_SIZE_FOR_AVERAGE);
-  currentBuffer=(currentBuffer+1)&(NUM_BUFFERS-1);
-  
-  return;
+	currentBuffer=(currentBuffer+1)&(NUM_BUFFERS-1);
+	return (count1 && count2 && count3 && count4);
 }
 
 int InstrumentPowerDue::queueReceive(){

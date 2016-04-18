@@ -85,7 +85,7 @@ class InstrumentPowerDue
     void bufferFullInterrupt();
     void taskIdValidTrigger();
     uint16_t readTaskID();
-    void writeAverage(void *packet);
+    bool writeAverage(void *packet);
     int queueReceive();
 
   private:
@@ -95,10 +95,6 @@ class InstrumentPowerDue
     volatile uint16_t currentTask;
     uint32_t timeReference, currentTime;
     uint16_t buffer_size;
-    uint32_t total1;
-    uint32_t total2;
-    uint32_t total3;
-    uint32_t total4;
     QueueHandle_t xQueue;
 };
 
