@@ -40,6 +40,11 @@
 #define TASK_ID_PIN_3 48
 #define TASK_ID_VALID_PIN 44  //PC19
 
+//#define COMMAND_PIN 44 //B14 GPIO 6
+
+
+#define RX_PIN 15  //PD5 For interrupt when receiving commands
+
 
 //packet = timestamp 4 bytes, task ID 2 bytes to maintain even symmetry
 #define SYNC_BLOCK 0x5555
