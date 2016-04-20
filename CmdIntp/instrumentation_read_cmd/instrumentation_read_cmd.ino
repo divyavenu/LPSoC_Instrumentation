@@ -33,7 +33,6 @@ void setup(){
   parLen = 0;
   
   Serial3.begin(9600);
-  // Wait for connection?
   while(!Serial3);
 
 //  PowerDue.init(SAMPLE_RATE);
