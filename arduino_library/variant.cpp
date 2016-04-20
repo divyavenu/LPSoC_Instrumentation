@@ -346,6 +346,9 @@ void USART1_Handler(void)
 void USART3_Handler(void)
 {
   Serial3.IrqHandler();
+ // uint8_t c = Serial3.read();
+  //SerialUSB.print(c,HEX);
+  //Serial3.write(c);  
 }
 
 // ----------------------------------------------------------------------------
@@ -382,7 +385,7 @@ void init( void )
 
   // Disable pull-up on every pin
   for (unsigned i = 0; i < PINS_COUNT; i++)
-	  digitalWrite(i, LOW);
+    digitalWrite(i, LOW);
 
   // Enable parallel access on PIO output data registers
   PIOA->PIO_OWER = 0xFFFFFFFF;
@@ -447,4 +450,3 @@ void init( void )
 #ifdef __cplusplus
 }
 #endif
-
