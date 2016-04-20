@@ -1,89 +1,111 @@
-/*
-*
-* Firmware for the PowerDué (Based on the Arduino Due)
-* Carnegie Mellon University Silicon Valley
-* Version: 0.0.1
-*
-*/
+#include <FreeRTOS_ARM.h>
 
-// Used for Selecting between Target and Instrument in <PowerDue.h>
-#define INSTRUMENT_POWER_DUE
-#include <PowerDue.h>
+// Pin for task hook
+#define TASK_ID_PIN_0 45
+#define TASK_ID_PIN_1 46
+#define TASK_ID_PIN_2 47
+#define TASK_ID_PIN_3 48
+#define TASK_ID_VALID_PIN 44
 
-#define SAMPLE_RATE 500
+static BaseType_t  Thread1TaskHook(void * pvParameter){
+  digitalWrite(TASK_ID_VALID_PIN, HIGH);
+  digitalWrite(TASK_ID_PIN_0, HIGH);
+  digitalWrite(TASK_ID_PIN_1, LOW);
+  digitalWrite(TASK_ID_PIN_2, LOW);
+  return 0; 
+}
 
-// just make sure 1 ending byte to null terminator
-char command1[9] = "*SMPABCD";
-char command2[5] = "*STR";
-char command3[5] = "*STP";
-char command4[9] = "*TRGDBDF";
-boolean cmdFlip;
+static BaseType_t  Thread2TaskHook(void * pvParameter){
+  digitalWrite(TASK_ID_VALID_PIN, HIGH);
+  digitalWrite(TASK_ID_PIN_0, LOW);
+  digitalWrite(TASK_ID_PIN_1, HIGH);
+  digitalWrite(TASK_ID_PIN_2, LOW);
+  return 0;
+}
 
-char sync[5];
-char test1[91];
-int randomNumber;
+static BaseType_t  Thread3TaskHook(void * pvParameter){
+  digitalWrite(TASK_ID_VALID_PIN, HIGH);
+  digitalWrite(TASK_ID_PIN_0, HIGH);
+  digitalWrite(TASK_ID_PIN_1, HIGH);
+  digitalWrite(TASK_ID_PIN_2, LOW);
+  return 0;
+}
 
-void setup(){
-  cmdFlip = false;
+static void Thread1(void* arg) {
+  vTaskSetApplicationTaskTag( NULL, Thread1TaskHook);
+  while (1) {
+    if (SerialUSB.available()){
+      char c = SerialUSB.read();
+      Serial3.write(c);
+    } else {
+      taskYIELD();
+    }
+  }
+}
+
+static void Thread2(void* arg) {
+  vTaskSetApplicationTaskTag( NULL, Thread2TaskHook);
+  char sync[5];
+  char buf[91];
+  
+  while (1) {
+    if (Serial3.available()){
+      Serial3.readBytes(sync, 4);
+      SerialUSB.print("SYNC: ");
+      for(int i = 0; i < 4; i++){
+        SerialUSB.print(sync[i]);
+      }
+      SerialUSB.println();
+      Serial3.readBytes(buf, 90);
+      SerialUSB.print("PACKET: ");
+      for(int i = 0; i < 10; i++){
+        SerialUSB.print(buf[i*9]&0b0111 , HEX);
+        for(int j = 0; j < 4; j++){
+          SerialUSB.print("/ ");
+          SerialUSB.print((buf[i*9+j*2+1]&0xF0)>>4, DEC);
+          SerialUSB.print(" ");
+          SerialUSB.print(((uint16_t)buf[i*9+j*2+1]&0x000F)<<4|(uint16_t)buf[i*9+j*2+2], DEC);
+        }
+        SerialUSB.print(", ");
+      }
+      SerialUSB.println();
+    } else {
+      taskYIELD();
+    }
+  }
+}
+
+static void Thread3(void* arg) {
+  vTaskSetApplicationTaskTag( NULL, Thread3TaskHook);
+  while(1);
+    taskYIELD();
+}
+
+//------------------------------------------------------------------------------
+void setup() {
+  pinMode(TASK_ID_PIN_0, OUTPUT);
+  pinMode(TASK_ID_PIN_1, OUTPUT);
+  pinMode(TASK_ID_PIN_2, OUTPUT);
+  pinMode(TASK_ID_VALID_PIN, OUTPUT);
+  
   SerialUSB.begin(0);
   while(!SerialUSB);
-    
-  // Initialize USB Comms
   Serial3.begin(9600);
-  randomSeed(analogRead(0));
-  
-  // Wait for connection?
   while(!Serial3);
+  
+  xTaskCreate(Thread1, NULL, configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+  xTaskCreate(Thread2, NULL, configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+  xTaskCreate(Thread3, NULL, configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+  
+  // start scheduler
+  vTaskStartScheduler();
+  Serial.println("Insufficient RAM");
+  while(1);
 }
 
-void loop(){
-//  while(1){
-//    // wait for the sampling to start
-//    while(!PowerDue.bufferReady());
-//    PowerDue.writeBuffer(&Serial3);
-//  }
-  // random number from 1 to 4
-  //Serial3.write(command2, 4);
-  //delay(3000);
-  
-  if(Serial3.available()) {
-    Serial3.readBytes(sync, 4);
-    Serial3.readBytes(test1, 90);
-    SerialUSB.print("SYNC: ");
-    SerialUSB.print(sync[0], DEC);
-    SerialUSB.print(sync[1], DEC);
-    SerialUSB.print(sync[2], DEC);
-    SerialUSB.println(sync[3], DEC);
-    SerialUSB.print("POEM: ");
-    for(int i=0; i < 90; i++)
-      SerialUSB.print(test1[i], HEX);
-    SerialUSB.println();
-    //delay(500);
-    //Serial3.write(command3, 4);
-    //SerialUSB.println("STOP");
-  }
-
-  
-//  randomNumber = random(1, 5);
-//  delay(2000);
-//
-//  switch (randomNumber) {
-//    case 1: 
-//      SerialUSB.println(command1);
-//      Serial3.write(command1, 8);
-//      break;
-//    case 2:
-//      SerialUSB.println(command2);
-//      Serial3.write(command2, 4);
-//      break;
-//    case 3:
-//      SerialUSB.println(command3);
-//      Serial3.write(command3, 4);
-//      break;
-//    case 4:
-//      SerialUSB.println(command4);
-//      Serial3.write(command4, 8);
-//      break;            
-//  } 
+void loop() {
+  digitalWrite(TASK_ID_VALID_PIN, HIGH);
+  digitalWrite(TASK_ID_PIN_0, LOW);
+  digitalWrite(TASK_ID_PIN_1, LOW);
+  digitalWrite(TASK_ID_PIN_2, LOW);
 }
-
