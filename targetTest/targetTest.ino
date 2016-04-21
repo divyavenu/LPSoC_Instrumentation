@@ -49,7 +49,22 @@ static void Thread2(void* arg) {
   char buf[91];
   
   while (1) {
-    if (Serial3.available()){
+
+
+    char data;
+        if( Serial3.RxQueue != 0 )
+    {
+        // Receive a message on the created queue.  Block for 10 ticks if a
+        // message is not immediately available.
+        if( xQueueReceive( Serial3.RxQueue, &( data ), portMAX_DELAY) )
+        {
+              //command_parser(data);
+              SerialUSB.println(data);
+            // pcRxedMessage now points to the struct AMessage variable posted
+            // by vATask.
+        }
+    }
+    /*if (Serial3.available()){
       Serial3.readBytes(sync, 4);
       SerialUSB.print("SYNC: ");
       for(int i = 0; i < 4; i++){
@@ -71,7 +86,7 @@ static void Thread2(void* arg) {
       SerialUSB.println();
     } else {
       taskYIELD();
-    }
+    }*/
   }
 }
 
