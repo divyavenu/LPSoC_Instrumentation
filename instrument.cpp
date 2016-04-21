@@ -477,13 +477,13 @@ bool InstrumentPowerDue::writeAverage(void *packet){
 
   if (ch1 && ch2 && ch3 && ch4){ 
     *(uint8_t *)packet = (uint8_t)currentTask; 
-    *(uint8_t *)(packet+1) = (uint8_t)(((0x1000) | ((uint16_t)(ch1))) >> 8);
+    *(uint8_t *)(packet+1) = (uint8_t)(((0x10) | ((uint16_t)(ch1))) >> 8);
     *(uint8_t *)(packet+2) = (uint8_t)(((uint16_t)ch1) & 0x00FF);
-    *(uint8_t *)(packet+3) = (uint8_t)(((0x2000) | ((uint16_t)(ch2))) >> 8);
+    *(uint8_t *)(packet+3) = (uint8_t)(((0x20) | ((uint16_t)(ch2))) >> 8);
     *(uint8_t *)(packet+4) = (uint8_t)(((uint16_t)ch2) & 0x00FF);
-    *(uint8_t *)(packet+5) = (uint8_t)(((0x3000) | ((uint16_t)(ch3))) >> 8);
+    *(uint8_t *)(packet+5) = (uint8_t)(((0x30) | ((uint16_t)(ch3))) >> 8);
     *(uint8_t *)(packet+6) = (uint8_t)(((uint16_t)ch3) & 0x00FF);
-    *(uint8_t *)(packet+7) = (uint8_t)(((0x4000) | ((uint16_t)(ch4))) >> 8);
+    *(uint8_t *)(packet+7) = (uint8_t)(((0x40) | ((uint16_t)(ch4))) >> 8);
     *(uint8_t *)(packet+8) = (uint8_t)(((uint16_t)ch4) & 0x00FF);
   }
 
