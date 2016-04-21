@@ -60,7 +60,7 @@ void InstrumentPowerDue::init(int sample_rate){
   digitalWrite(CH3GS0PIN, LOW);
   digitalWrite(CH3GS1PIN, LOW);
   digitalWrite(CH3OFFSET_SHUTDOWN, OFFSET_DISABLE);
-  SerialInit();
+
   //changeSamplingRate(sample_rate);
  // startADC();
 }
@@ -71,31 +71,6 @@ uint16_t InstrumentPowerDue::readTaskID(){
       (digitalRead(TASK_ID_PIN_2)<<2)|
       (digitalRead(TASK_ID_PIN_1)<<1)|
       (digitalRead(TASK_ID_PIN_0)));
-}
-
-void InstrumentPowerDue::SerialInit(){
-
-  
-
-   USART3->US_CR = US_CR_RSTRX | US_CR_RSTTX | US_CR_RXDIS ;
-
-     //configure_usart()
-   //enable USART interrupt
-   NVIC_EnableIRQ(USART3_IRQn);
-
-  //Set USART to normal mode, asynchronous
-   USART3->US_MR = 0x0;
-
-
-  //Mask all interrupts except the  RXRDY interrupt
-    USART3->US_IMR = 0x1;
-
-   // SerialUSB.println(USART3->US_RHR);
-  SerialUSB.print("Initialzed USART");
-  
-  USART3->US_CR = US_CR_RXEN | UART_CR_TXEN;
-
-
 }
 
 void InstrumentPowerDue::startADC(){
@@ -361,51 +336,6 @@ void InstrumentPowerDue::taskIdValidTrigger(){
 
   startSampling();
 }
-void InstrumentPowerDue::CommandInterpreter(){
-  //stopSampling();
-  // Set packet length
- // buffer[currentBuffer][5] = ((BUFFER_SIZE_FOR_USB-HEADER_SIZE)-(ADC->ADC_RCR));
-  //(ADC->ADC_RCR)=0;
-  //int x= Serial3.read();
-  //Serial3.readBytes(command,COMMAND_SIZE);
-  //Serial3.readBytes(tempCommand,COMMAND_SIZE);
-          //SerialUSB.print("Interrupt");
-  //SerialUSB.print("Interrupt");
-// if (Serial3.available() > 0) {
-        // read the incoming byte:
-  //tempCharacter = Serial3.read();
-        //Or serialdata = Serial3.read();
-        // say what you got:
-  //SerialUSB.write("I received: ");
-  //SerialUSB.write(tempCharacter);
-
-  //SerialUSB.print("Inside the interpreter: ");
-  //writeBuffer(&Serial3);
-  //startSampling(); // Must be called after each function except stopSampling
-          //SerialUSB.println("Int");
-
-   while (Serial3.available()) {
-        char c = Serial3.read();
-        SerialUSB.println(c, HEX);
-     //   command_parser(c);
-      }
-}
-
-/*void USART3_Handler()
-{
-   //SerialUSB.print(USART3->US_RHR);
-   PowerDue.CommandInterpreter(); //from ISR to Queue
-    //SerialUSB.write("Interrupt"); //hook , create Seial
-  
-   // char c = Serial3.read();
-    //Serial3.readBytes(command,2);
-    //tempCharacter = Serial3.read();
-    //SerialUSB.write(command,2);
-    //SerialUSB.print(c); 
-
-}
-*/
-//void helloDivya(){ return;}
 
 void ADC_Handler()
 {

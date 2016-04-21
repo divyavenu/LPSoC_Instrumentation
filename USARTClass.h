@@ -111,10 +111,6 @@ class USARTClass : public UARTClass
     void begin(const uint32_t dwBaudRate, const USARTModes config);
     void begin(const uint32_t dwBaudRate, const UARTModes config);
 
-   //Added by Divya
-    void IrqHandler(void);
-    //void flush(void);
-    //size_t write(const uint8_t c);
 
   protected:
     Usart* _pUsart;

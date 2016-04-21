@@ -51,38 +51,3 @@ void USARTClass::begin(const uint32_t dwBaudRate, const USARTModes config)
   init(dwBaudRate, modeReg);
 }
 
-
-//Defined by Divya
-
-/*void USARTClass::flush( void )
-{
-  // Wait for transmission to complete
-  while ((_pUsart->US_CSR & US_CSR_TXRDY) != US_CSR_TXRDY)
-	;
-}
-
-size_t USARTClass::write( const uint8_t uc_data )
-{
-  // Check if the transmitter is ready
-  while ((_pUsart->US_CSR & US_CSR_TXRDY) != US_CSR_TXRDY)
-    ;
-  // Send character
-  _pUsart->US_THR = uc_data ;
-  return 1;
-}*/
-
-void USARTClass::IrqHandler( void )
-{
-  uint32_t status = _pUsart->US_CSR;
-  // Did we receive data ?
-  if ((status & US_CSR_RXRDY) == US_CSR_RXRDY)
-    _rx_buffer->store_char( _pUsart->US_RHR ) ;
-  // Acknowledge errors
-  if ((status & US_CSR_OVRE) == US_CSR_OVRE ||
-		  (status & US_CSR_FRAME) == US_CSR_FRAME)
-  {
-	// TODO: error reporting outside ISR
-    _pUsart->US_CR |= US_CR_RSTSTA;
-  }
-  write(read());
-}

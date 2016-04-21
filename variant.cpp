@@ -308,6 +308,7 @@ void serialEvent() { }
 // IT handlers
 void UART_Handler(void)
 {
+
   Serial.IrqHandler();
 }
 
@@ -346,9 +347,6 @@ void USART1_Handler(void)
 void USART3_Handler(void)
 {
   Serial3.IrqHandler();
- // uint8_t c = Serial3.read();
-  //SerialUSB.print(c,HEX);
-  //Serial3.write(c);  
 }
 
 // ----------------------------------------------------------------------------
