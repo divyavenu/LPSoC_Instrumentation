@@ -85,6 +85,7 @@ class InstrumentPowerDue
     void bufferFullInterrupt();
     void taskIdValidTrigger();
     uint16_t readTaskID();
+    void pushAverage(int channel1, int channel2, int channel3, int channel4);
     bool writeAverage(void *packet);
     int queueReceive();
 
@@ -96,6 +97,8 @@ class InstrumentPowerDue
     uint32_t timeReference, currentTime;
     uint16_t buffer_size;
     QueueHandle_t xQueue;
+
+    int ch1,ch2,ch3,ch4;
 };
 
 extern InstrumentPowerDue PowerDue;

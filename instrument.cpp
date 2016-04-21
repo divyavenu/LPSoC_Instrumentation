@@ -341,21 +341,55 @@ void InstrumentPowerDue::taskIdValidTrigger(){
   startSampling();
 }
 
+void InstrumentPowerDue::pushAverage(int channel1, int channel2, int channel3, int channel4){
+  ch1 = channel1;
+  ch2 = channel2;
+  ch3 = channel3;
+  ch4 = channel4;
+}
+
 void ADC_Handler()
 {
-  //Read reason for interrupt
-  int f=ADC->ADC_ISR;
+  static volatile int total1 = 0;
+  static volatile int total2 = 0;
+  static volatile int total3 = 0;
+  static volatile int total4 = 0;
+  static volatile int count1 = 0;
+  static volatile int count2 = 0;
+  static volatile int count3 = 0;
+  static volatile int count4 = 0;
 
-  // The Receive Counter Register has reached 0 since the last write in ADC_RCR or ADC_RNCR.
-  // Check if the Buffer is full
-  if (f&(1<<27)){
-    PowerDue.bufferFullInterrupt();
-    return;
+  if(ADC->ADC_ISR & 0x80){
+    total1 += *(ADC->ADC_CDR+7);
+    count1++;
   }
 
+  if(ADC->ADC_ISR & 0x08){
+    total2 += *(ADC->ADC_CDR+3);
+    count2++;
+  }
+
+  if(ADC->ADC_ISR & 0x04){
+    total3 += *(ADC->ADC_CDR+2);  
+    count3++;
+  }
+
+  if(ADC->ADC_ISR & 0x02){
+    total4 += *(ADC->ADC_CDR+1);
+    count4++;
+  }
+
+  if(ADC->ADC_ISR & (1<<27)){
+    PowerDue.pushAverage(total1/count1, total2/count2, total3/count3, total4/count4);
+    total1=total2=total3=total4=0;
+    count1=count2=count3=count4=0;
+    PowerDue.bufferFullInterrupt();
+  }
 }
 
 bool InstrumentPowerDue::writeAverage(void *packet){
+
+  /*
   int m = 6;
   int j = 0;
   uint16_t count1 = 0;
@@ -439,6 +473,23 @@ bool InstrumentPowerDue::writeAverage(void *packet){
 
 	currentBuffer=(currentBuffer+1)&(NUM_BUFFERS-1);
 	return (count1 && count2 && count3 && count4);
+  */
+
+  if (ch1 && ch2 && ch3 && ch4){ 
+    *(uint8_t *)packet = (uint8_t)currentTask; 
+    *(uint8_t *)(packet+1) = (uint8_t)(((0x1000) | ((uint16_t)(ch1))) >> 8);
+    *(uint8_t *)(packet+2) = (uint8_t)(((uint16_t)ch1) & 0x00FF);
+    *(uint8_t *)(packet+3) = (uint8_t)(((0x2000) | ((uint16_t)(ch2))) >> 8);
+    *(uint8_t *)(packet+4) = (uint8_t)(((uint16_t)ch2) & 0x00FF);
+    *(uint8_t *)(packet+5) = (uint8_t)(((0x3000) | ((uint16_t)(ch3))) >> 8);
+    *(uint8_t *)(packet+6) = (uint8_t)(((uint16_t)ch3) & 0x00FF);
+    *(uint8_t *)(packet+7) = (uint8_t)(((0x4000) | ((uint16_t)(ch4))) >> 8);
+    *(uint8_t *)(packet+8) = (uint8_t)(((uint16_t)ch4) & 0x00FF);
+  }
+
+  currentBuffer=(currentBuffer+1)&(NUM_BUFFERS-1);
+
+  return (ch1 && ch2 && ch3 && ch4);
 }
 
 int InstrumentPowerDue::queueReceive(){
