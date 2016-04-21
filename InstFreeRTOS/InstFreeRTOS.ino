@@ -19,12 +19,27 @@ int parLen;
 /* Command Interpreter task */
 static void commandInterpreter(void *arg) {
   while(1) {
-    if (Serial3.available()){
+    /*if (Serial3.available()){
       char c = Serial3.read();
       command_parser(c);
     } else {
       taskYIELD();
+    }*/
+    char data;
+        if( Serial3.RxQueue != 0 )
+    {
+        // Receive a message on the created queue.  Block for 10 ticks if a
+        // message is not immediately available.
+        if( xQueueReceive( Serial3.RxQueue, &( data ), portMAX_DELAY) )
+        {
+              command_parser(data);
+              SerialUSB.println(data);
+            // pcRxedMessage now points to the struct AMessage variable posted
+            // by vATask.
+        }
     }
+
+
   }
 }
 

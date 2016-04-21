@@ -78,6 +78,9 @@ void UARTClass::init(const uint32_t dwBaudRate, const uint32_t modeReg)
 
   // Enable receiver and transmitter
   _pUart->UART_CR = UART_CR_RXEN | UART_CR_TXEN;
+
+  RxQueue = xQueueCreate( NUM_QUEUES, sizeof(char));
+
 }
 
 void UARTClass::end( void )
@@ -171,16 +174,16 @@ size_t UARTClass::write( const uint8_t uc_data )
 void UARTClass::IrqHandler( void )
 {
   uint32_t status = _pUart->UART_SR;
+  BaseType_t xHigherPriorityTaskWoken;
 
 //  digitalWrite(2, 1);   // turn the LED on (HIGH is the voltage level)
 
   //digitalWrite(2, 0);   // turn the LED on (HIGH is the voltage level)
 
-
-
   // Did we receive data?
   if ((status & UART_SR_RXRDY) == UART_SR_RXRDY){
         _rx_buffer->store_char(_pUart->UART_RHR);
+         xQueueSendFromISR( RxQueue, (void *)&_pUart->UART_RHR, &xHigherPriorityTaskWoken );
         //write(_pUart->UART_RHR);
   }
 
