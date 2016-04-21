@@ -360,23 +360,23 @@ void ADC_Handler()
   static volatile int count4 = 0;
 
   if(ADC->ADC_ISR & 0x80){
-    total1 += *(ADC->ADC_CDR+7);
-    count1++;
+    total4 += *(ADC->ADC_CDR+7);
+    count4++;
   }
 
   if(ADC->ADC_ISR & 0x08){
-    total2 += *(ADC->ADC_CDR+3);
-    count2++;
-  }
-
-  if(ADC->ADC_ISR & 0x04){
-    total3 += *(ADC->ADC_CDR+2);  
+    total3 += *(ADC->ADC_CDR+3);
     count3++;
   }
 
+  if(ADC->ADC_ISR & 0x04){
+    total2 += *(ADC->ADC_CDR+2);  
+    count2++;
+  }
+
   if(ADC->ADC_ISR & 0x02){
-    total4 += *(ADC->ADC_CDR+1);
-    count4++;
+    total1 += *(ADC->ADC_CDR+1);
+    count1++;
   }
 
   if(ADC->ADC_ISR & (1<<27)){
