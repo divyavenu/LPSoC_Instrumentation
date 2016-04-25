@@ -31,14 +31,31 @@ static BaseType_t  Thread3TaskHook(void * pvParameter){
   return 0;
 }
 
+static BaseType_t  Thread4TaskHook(void * pvParameter){
+  digitalWrite(TASK_ID_VALID_PIN, HIGH);
+  digitalWrite(TASK_ID_PIN_0, LOW);
+  digitalWrite(TASK_ID_PIN_1, LOW);
+  digitalWrite(TASK_ID_PIN_2, HIGH);
+  return 0;
+}
+
 static void Thread1(void* arg) {
   vTaskSetApplicationTaskTag( NULL, Thread1TaskHook);
-  while (1) {
+  const TickType_t xPeriod = 2000/portTICK_PERIOD_MS;
+  Serial3.write("*STR");
+    
+  while (1) {  
     if (SerialUSB.available()){
-      char c = SerialUSB.read();
-      Serial3.write(c);
+      while(SerialUSB.available() > 0){
+        char c = SerialUSB.read();
+        Serial3.write(c);
+        SerialUSB.print(c);
+      }
+      SerialUSB.println();
     } else {
-      taskYIELD();
+      vTaskDelay(xPeriod);
+      Serial3.write("*RDY");
+      SerialUSB.println("*RDY");
     }
   }
 }
@@ -46,54 +63,69 @@ static void Thread1(void* arg) {
 static void Thread2(void* arg) {
   vTaskSetApplicationTaskTag( NULL, Thread2TaskHook);
   char sync[5];
-  char buf[91];
+  char buf[122];
+  uint8_t nTask;
   
   while (1) {
-
-
-    char data;
-        if( Serial3.RxQueue != 0 )
-    {
-        // Receive a message on the created queue.  Block for 10 ticks if a
-        // message is not immediately available.
-        if( xQueueReceive( Serial3.RxQueue, &( data ), portMAX_DELAY) )
-        {
-              //command_parser(data);
-              SerialUSB.println(data);
-            // pcRxedMessage now points to the struct AMessage variable posted
-            // by vATask.
-        }
-    }
-    /*if (Serial3.available()){
-      Serial3.readBytes(sync, 4);
-      SerialUSB.print("SYNC: ");
-      for(int i = 0; i < 4; i++){
-        SerialUSB.print(sync[i]);
-      }
-      SerialUSB.println();
-      Serial3.readBytes(buf, 90);
-      SerialUSB.print("PACKET: ");
-      for(int i = 0; i < 10; i++){
-        SerialUSB.print(buf[i*9]&0b0111 , HEX);
+    if (Serial3.available()){
+      nTask = 0;
+      memset(buf, '0', 122);
+//      Serial3.readBytes(sync, 4);
+//      SerialUSB.print("SYNC: ");
+//      for(int i = 0; i < 4; i++){
+//        SerialUSB.print(sync[i]);
+//      }
+//      SerialUSB.println();
+      nTask = Serial3.read();
+      SerialUSB.print("#ofTask: ");
+      SerialUSB.println(nTask, DEC);
+      
+      while (!Serial3.available());
+      Serial3.readBytes(buf, nTask*11);
+      serialFlush();
+      
+      SerialUSB.println("<PACKET>");
+      //SerialUSB.write(buf, (nTask)*11);
+      for(int i = 0; i < nTask; i++){
+        SerialUSB.print(buf[i*11]&0x07, DEC);
+        SerialUSB.print(": [ ");
         for(int j = 0; j < 4; j++){
-          SerialUSB.print("/ ");
-          SerialUSB.print((buf[i*9+j*2+1]&0xF0)>>4, DEC);
+//          SerialUSB.print(buf[i*11+j*2+1], HEX);
+//          SerialUSB.print(buf[i*11+j*2+2], HEX); 
+          SerialUSB.print(buf[i*11+j*2+1]>>4, DEC);
+          SerialUSB.print("/");      
+          SerialUSB.print(((uint16_t)buf[i*11+j*2+1]&0x000F)<<8|(uint16_t)buf[i*11+j*2+2], DEC);
           SerialUSB.print(" ");
-          SerialUSB.print(((uint16_t)buf[i*9+j*2+1]&0x000F)<<4|(uint16_t)buf[i*9+j*2+2], DEC);
         }
-        SerialUSB.print(", ");
+        SerialUSB.print("] ");
+        SerialUSB.println(((uint16_t)buf[i*11+9])<<8|(uint16_t)buf[i*11+10], DEC);        
       }
       SerialUSB.println();
+      
     } else {
       taskYIELD();
-    }*/
+    }
   }
 }
 
 static void Thread3(void* arg) {
   vTaskSetApplicationTaskTag( NULL, Thread3TaskHook);
   while(1);
-    taskYIELD();
+    if (SerialUSB.available()){
+      SerialUSB.print("Thread 3");
+    } else {
+      //taskYIELD();
+    }
+}
+
+static void Thread4(void* arg) {
+  vTaskSetApplicationTaskTag( NULL, Thread4TaskHook);
+  while(1);
+    if (SerialUSB.available()){
+      SerialUSB.print("Thread 4");
+    } else {
+      //taskYIELD();
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -111,7 +143,8 @@ void setup() {
   xTaskCreate(Thread1, NULL, configMINIMAL_STACK_SIZE, NULL, 1, NULL);
   xTaskCreate(Thread2, NULL, configMINIMAL_STACK_SIZE, NULL, 1, NULL);
   xTaskCreate(Thread3, NULL, configMINIMAL_STACK_SIZE, NULL, 1, NULL);
-  
+  xTaskCreate(Thread4, NULL, configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+    
   // start scheduler
   vTaskStartScheduler();
   Serial.println("Insufficient RAM");
@@ -123,4 +156,10 @@ void loop() {
   digitalWrite(TASK_ID_PIN_0, LOW);
   digitalWrite(TASK_ID_PIN_1, LOW);
   digitalWrite(TASK_ID_PIN_2, LOW);
+}
+
+void serialFlush(){
+  while(Serial3.available() > 0) {
+    char c = Serial3.read();
+  }
 }

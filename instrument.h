@@ -63,7 +63,8 @@
 // Has to be a power of 2
 #define NUM_BUFFERS 4
 #define BUFFER_SIZE_FOR_AVERAGE (2*4)+HEADER_SIZE // in bytes
-#define NUM_QUEUES 4
+#define MAX_TASKS 11
+#define NUM_STORAGE 2
 
 #include "Arduino.h"
 #include <Wire.h>
@@ -80,13 +81,17 @@ class InstrumentPowerDue
     void startSampling();
     void stopSampling();
     void startADC();
-    bool bufferReady();
+    //bool bufferReady();
+    int bufferReady();
     void writeBuffer(Serial_ * port);
     void bufferFullInterrupt();
     void taskIdValidTrigger();
     uint16_t readTaskID();
     bool writeAverage(void *packet);
-    int queueReceive();
+    void accumStorage(int bid);
+    void sendHeader(USARTClass *port);
+    void sendPacket(USARTClass *port);
+    void initStorage();
 
   private:
     volatile bool isSampling, isInterrupted;
@@ -94,8 +99,16 @@ class InstrumentPowerDue
     volatile int currentBuffer, nextBuffer;
     volatile uint16_t currentTask;
     uint32_t timeReference, currentTime;
-    uint16_t buffer_size;
+    uint32_t accumTotal[NUM_STORAGE][MAX_TASKS][4];
+    uint16_t accumCount[NUM_STORAGE][MAX_TASKS];
+    uint8_t accumTaskId[NUM_STORAGE][MAX_TASKS];
+    uint8_t numberOfTasks[NUM_STORAGE];
+    uint8_t packet[MAX_TASKS][11];
+    uint8_t packetSize;
+    volatile uint8_t currentStorage;
+
     QueueHandle_t xQueue;
+    SemaphoreHandle_t xSemaphore;
 };
 
 extern InstrumentPowerDue PowerDue;

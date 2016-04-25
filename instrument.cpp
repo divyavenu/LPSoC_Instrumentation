@@ -18,7 +18,9 @@ InstrumentPowerDue::InstrumentPowerDue():currentBuffer(0), nextBuffer(0), curren
 void InstrumentPowerDue::init(int sample_rate){
   // Start I2C
   Wire.begin();
-  xQueue = xQueueCreate( NUM_QUEUES, sizeof(currentBuffer));
+  xQueue = xQueueCreate(NUM_BUFFERS, sizeof(currentBuffer));
+  xSemaphore = xSemaphoreCreateMutex();
+  initStorage();
 
   // Task ID Pin as Inputs
   pinMode(TASK_ID_PIN_0,INPUT);
@@ -235,8 +237,14 @@ void InstrumentPowerDue::stopSampling(){
   TC_Stop(TC0, 0);
 }
 
-bool InstrumentPowerDue::bufferReady(){
-  return currentBuffer!=nextBuffer;
+// bool InstrumentPowerDue::bufferReady(){
+//   return currentBuffer!=nextBuffer;
+// }
+
+int InstrumentPowerDue::bufferReady(){
+  int bid;
+  portBASE_TYPE xStatus = xQueueReceive(xQueue, &bid, portMAX_DELAY);
+  return bid;
 }
 
 void InstrumentPowerDue::writeBuffer(Serial_ * port){
@@ -329,6 +337,7 @@ void InstrumentPowerDue::bufferFullInterrupt(){
   // Send Queue
   BaseType_t xHigherPriorityTaskWoken = pdFALSE;
   xQueueSendToBackFromISR( xQueue, (void *)&currentBuffer, &xHigherPriorityTaskWoken );
+  currentBuffer = (currentBuffer+1)&(NUM_BUFFERS-1);
 }
 
 void InstrumentPowerDue::taskIdValidTrigger(){
@@ -349,10 +358,11 @@ void ADC_Handler()
   // The Receive Counter Register has reached 0 since the last write in ADC_RCR or ADC_RNCR.
   // Check if the Buffer is full
   if (f&(1<<27)){
+  	//noInterrupts();
     PowerDue.bufferFullInterrupt();
+    //interrupts();
     return;
   }
-
 }
 
 bool InstrumentPowerDue::writeAverage(void *packet){
@@ -366,6 +376,7 @@ bool InstrumentPowerDue::writeAverage(void *packet){
   uint32_t total2 = 0;
   uint32_t total3 = 0;
   uint32_t total4 = 0;
+  uint16_t buffer_size;
 
   while(((buffer[currentBuffer][m])>>12)!=1){
     m++;
@@ -415,14 +426,6 @@ bool InstrumentPowerDue::writeAverage(void *packet){
 		total4 /= count4;
 	  
 		*(uint8_t *)packet = (uint8_t)buffer[currentBuffer][2+m]; 
-		// *(uint8_t *)(packet+1) = (uint8_t)(((0x1000) |((uint16_t)(total1))) >> 8 );
-		// *(uint8_t *)(packet+2) = (uint8_t)(((uint16_t)total1) & 0x00FF);
-		// *(uint8_t *)(packet+3) = (uint8_t)(((0x2000) |((uint16_t)(total2))) >> 8 );
-		// *(uint8_t *)(packet+4) = (uint8_t)(((uint16_t)total2) & 0x00FF);
-		// *(uint8_t *)(packet+5) = (uint8_t)(((0x3000) |((uint16_t)(total3))) >> 8 );
-		// *(uint8_t *)(packet+6) = (uint8_t)(((uint16_t)total3) & 0x00FF);
-		// *(uint8_t *)(packet+7) = (uint8_t)(((0x7000) |((uint16_t)(total4))) >> 8 );
-		// *(uint8_t *)(packet+8) = (uint8_t)(((uint16_t)total4) & 0x00FF);
 		*(uint8_t *)(packet+1) = (uint8_t)(((buffer[currentBuffer][6+m] & 0xF000) |((uint16_t)(total1))) >> 8 );
 		*(uint8_t *)(packet+2) = (uint8_t)(((uint16_t)total1) & 0x00FF);
 		*(uint8_t *)(packet+3) = (uint8_t)(((buffer[currentBuffer][7+m] & 0xF000) |((uint16_t)(total2))) >> 8 );
@@ -431,21 +434,119 @@ bool InstrumentPowerDue::writeAverage(void *packet){
 		*(uint8_t *)(packet+6) = (uint8_t)(((uint16_t)total3) & 0x00FF);
 		*(uint8_t *)(packet+7) = (uint8_t)(((buffer[currentBuffer][9+m] & 0xF000) |((uint16_t)(total4))) >> 8 );
 		*(uint8_t *)(packet+8) = (uint8_t)(((uint16_t)total4) & 0x00FF);
-		// *(uint16_t *)(packet+1) = (buffer[currentBuffer][6+m] & 0b1111000000000000) | total1;
-		// *(uint16_t *)(packet+3) = (buffer[currentBuffer][7+m] & 0b1111000000000000) | total2;
-		// *(uint16_t *)(packet+5) = (buffer[currentBuffer][8+m] & 0b1111000000000000) | total3;
-		// *(uint16_t *)(packet+7) = (buffer[currentBuffer][9+m] & 0b1111000000000000) | total4;
 	}
 
 	currentBuffer=(currentBuffer+1)&(NUM_BUFFERS-1);
 	return (count1 && count2 && count3 && count4);
 }
 
-int InstrumentPowerDue::queueReceive(){
-  int bufferNumber;
-  portBASE_TYPE xStatus = xQueueReceive(xQueue, &bufferNumber, portMAX_DELAY);
-  //if( xStatus != pdPASS ) SerialUSB.println( "Could not receive from the queue.\r\n" );
-  return bufferNumber;
+void InstrumentPowerDue::accumStorage(int bid){
+	int m = 6;
+	int j = 0;
+	int taskIndex;
+	uint16_t count = 0;
+	uint32_t total[4];
+	uint16_t buffer_size;
+	uint8_t taskId = (uint8_t)buffer[bid][2];
+
+	while(((buffer[bid][m])>>12)!=1)
+		m++;
+	m-=6;   
+ 	buffer_size = (buffer[bid][5]-2*m)/2;
+
+	for (int i = 0; i < 4; i++)
+		total[i] = 0;	
+
+	while (buffer_size >= 4){     
+		for (int i = 0; i < 4; i++)
+			total[i] += (buffer[bid][(6+m+i)+j] & 0x0FFF);     			
+		count++;
+		buffer_size -= 4;
+	    j += 4;
+	}
+
+	if (count > 0){
+		xSemaphoreTake(xSemaphore, portMAX_DELAY);
+		for (taskIndex = 0; taskIndex < numberOfTasks[currentStorage]; taskIndex++){
+			if(accumTaskId[currentStorage][taskIndex] == taskId)
+				break;
+		}
+		if (taskIndex == numberOfTasks[currentStorage]){
+			accumTaskId[currentStorage][taskIndex] = taskId;
+			numberOfTasks[currentStorage]++;
+		}
+
+		for (int i = 0; i < 4; i++)
+			accumTotal[currentStorage][taskIndex][i] += total[i];
+		accumCount[currentStorage][taskIndex] += count;
+		xSemaphoreGive(xSemaphore);
+	}
+
+	//currentBuffer=(currentBuffer+1)&(NUM_BUFFERS-1);
+	return;
+}
+
+void InstrumentPowerDue::sendHeader(USARTClass *port){
+	uint8_t sid = currentStorage;
+
+	xSemaphoreTake(xSemaphore, portMAX_DELAY);
+	currentStorage = (currentStorage+1)&(NUM_STORAGE-1);
+	xSemaphoreGive(xSemaphore);
+
+	port->write(numberOfTasks[sid]);
+
+	// Creating Packet
+	for (int i = 0; i < numberOfTasks[sid]; i++){
+		packet[i][0] = accumTaskId[sid][i];
+		for (int j = 0; j < 4; j++){
+			accumTotal[sid][i][j] /= accumCount[sid][i];
+			if (accumTotal[sid][i][j] > 4095){
+				packet[i][j*2+1] = 0xFF;
+				packet[i][j*2+2] = 0xFF;			
+			} else {
+				packet[i][j*2+1] = (uint8_t)(accumTotal[sid][i][j] >> 8);
+				packet[i][j*2+2] = (uint8_t)(accumTotal[sid][i][j]);
+			}
+		}
+		packet[i][1] |= 0x10;
+		packet[i][3] |= 0x20;
+		packet[i][5] |= 0x30;
+		packet[i][7] |= 0x70;
+		packet[i][9] = (uint8_t)(accumCount[sid][i] >> 8);
+		packet[i][10] = (uint8_t)(accumCount[sid][i]);
+	}
+	packetSize = numberOfTasks[sid] * 11;
+
+	// Initialize Storage
+	for (int i = 0; i < MAX_TASKS; i++){
+		for (int j = 0; j < 4; j++)
+			accumTotal[sid][i][j] = 0;
+		accumCount[sid][i] = 0;
+		accumTaskId[sid][i] = 0xFF;
+	}
+	numberOfTasks[sid] = 0;
+	return;
+}
+
+void InstrumentPowerDue::sendPacket(USARTClass *port){
+	port->write((uint8_t *)&packet, packetSize);
+	packetSize = 0;
+}
+
+void InstrumentPowerDue::initStorage(){
+	xSemaphoreTake(xSemaphore, portMAX_DELAY);	
+	for (int sid = 0; sid < NUM_STORAGE; sid++){
+		for (int i = 0; i < MAX_TASKS; i++){
+			for (int j = 0; j < 4; j++)
+				accumTotal[sid][i][j] = 0;
+			accumCount[sid][i] = 0;
+			accumTaskId[sid][i] = 0xFF;
+		}
+		numberOfTasks[sid] = 0;
+	}
+	packetSize = 0;
+	xSemaphoreGive(xSemaphore);
+	return;	
 }
 
 InstrumentPowerDue PowerDue;
