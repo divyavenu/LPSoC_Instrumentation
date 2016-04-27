@@ -16,12 +16,12 @@ int parLen;
 /* Command Interpreter task */
 static void commandInterpreter(void *arg) {
   while(1) {
-    if (Serial3.available()){
+    /*if (Serial3.available()){
       char c = Serial3.read();
       command_parser(c);
     } else {
       taskYIELD();
-    }
+    }*/
 /*    char data;
         if( Serial3.RxQueue != 0 )
     {
