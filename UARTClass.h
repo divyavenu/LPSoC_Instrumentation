@@ -21,7 +21,6 @@
 
 #include "HardwareSerial.h"
 #include "RingBuffer.h"
-#include "/Users/divya/Documents/Arduino/libraries/FreeRTOS_ARM/src/FreeRTOS_ARM.h"
 
 // Includes Atmel CMSIS
 #include <chip.h>
@@ -62,10 +61,11 @@ class UARTClass : public HardwareSerial
 
     void IrqHandler(void);
 
+    //Adding additional functionality to UART and USART objects
+    void callback(Uart* pUart) __attribute__((weak));
+
     operator bool() { return true; }; // UART always active
     
-    QueueHandle_t RxQueue; //FreeRTOS Queue to 
-
 
   protected:
     void init(const uint32_t dwBaudRate, const uint32_t config);

@@ -52,7 +52,7 @@ static void Thread2(void* arg) {
 
 
     char data;
-        if( Serial3.RxQueue != 0 )
+    /*    if( Serial3.RxQueue != 0 )
     {
         // Receive a message on the created queue.  Block for 10 ticks if a
         // message is not immediately available.
@@ -63,6 +63,13 @@ static void Thread2(void* arg) {
             // pcRxedMessage now points to the struct AMessage variable posted
             // by vATask.
         }
+    }*/
+
+     if( Serial3.available())
+    {
+      data = Serial3.read();
+       SerialUSB.println(data);
+           
     }
     /*if (Serial3.available()){
       Serial3.readBytes(sync, 4);

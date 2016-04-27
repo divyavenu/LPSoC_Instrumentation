@@ -26,11 +26,11 @@ static void commandInterpreter(void *arg) {
       taskYIELD();
     }*/
     char data;
-        if( Serial3.RxQueue != 0 )
+        if( PowerDue.RxQueue != 0 )
     {
         // Receive a message on the created queue.  Block for 10 ticks if a
         // message is not immediately available.
-        if( xQueueReceive( Serial3.RxQueue, &( data ), portMAX_DELAY) )
+        if( xQueueReceive( PowerDue.RxQueue, &( data ), portMAX_DELAY) )
         {
               command_parser(data);
               SerialUSB.println(data);
@@ -159,5 +159,4 @@ int command_interpreter(char* cmd_header) {
   
   return par_len;
 }
-
 

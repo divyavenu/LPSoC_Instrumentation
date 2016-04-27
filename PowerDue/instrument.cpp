@@ -6,12 +6,10 @@
 */
 
 #include "instrument.h"
-int tempCharacter;
 
-void ValidTaskIDChange_Handler() {
+void ValidTaskIDChange_Handler(){
   PowerDue.taskIdValidTrigger();
 }
-
 
 InstrumentPowerDue::InstrumentPowerDue():currentBuffer(0), nextBuffer(0), currentTime(0), timeReference(0), currentTask(0), isSampling(false), isInterrupted(false){
 
@@ -20,20 +18,22 @@ InstrumentPowerDue::InstrumentPowerDue():currentBuffer(0), nextBuffer(0), curren
 void InstrumentPowerDue::init(int sample_rate){
   // Start I2C
   Wire.begin();
+  xQueue = xQueueCreate( NUM_QUEUES, sizeof(currentBuffer));
+  RxQueue = xQueueCreate( RECIEVE_QUEUE_SIZE, sizeof(char));
 
   // Task ID Pin as Inputs
   pinMode(TASK_ID_PIN_0,INPUT);
   pinMode(TASK_ID_PIN_1,INPUT);
   pinMode(TASK_ID_PIN_2,INPUT);
   pinMode(TASK_ID_PIN_3,INPUT);
-  //pinMode(TASK_ID_VALID_PIN,INPUT);
-
-  pinMode(RX_PIN,INPUT);
+  pinMode(TASK_ID_VALID_PIN,INPUT);
 
 
-   attachInterrupt(digitalPinToInterrupt(TASK_ID_VALID_PIN), ValidTaskIDChange_Handler, RISING);
+  //When the task valid pin goes from low to high, ISR is called
+  attachInterrupt(digitalPinToInterrupt(TASK_ID_VALID_PIN), ValidTaskIDChange_Handler, RISING);
 
   // Start Channel 0 No Gain and No Offset
+  // For setting the offset - gain 25 , 0 amp
   pinMode(CH0GS0PIN, OUTPUT);
   pinMode(CH0GS1PIN, OUTPUT);
   digitalWrite(CH0GS0PIN, LOW);
@@ -61,8 +61,9 @@ void InstrumentPowerDue::init(int sample_rate){
   digitalWrite(CH3GS1PIN, LOW);
   digitalWrite(CH3OFFSET_SHUTDOWN, OFFSET_DISABLE);
 
-  //changeSamplingRate(sample_rate);
- // startADC();
+// 
+  changeSamplingRate(sample_rate);
+  startADC();
 }
 
 
@@ -75,7 +76,7 @@ uint16_t InstrumentPowerDue::readTaskID(){
 
 void InstrumentPowerDue::startADC(){
 
-
+  //Returns the number of microseconds since the Arduino board began running the current program
   timeReference = micros();
   // Power measurement Controller Enable Peripheral ADC
   pmc_enable_periph_clk(ID_ADC);
@@ -86,6 +87,7 @@ void InstrumentPowerDue::startADC(){
   ADC->ADC_MR |=0x3;
 
   //enable 4 specific channels
+  //ch7, ch3, ch2, ch0
   ADC->ADC_CHER=0x8E;
 
   //enable adc interrupt
@@ -95,6 +97,7 @@ void InstrumentPowerDue::startADC(){
   NVIC_SetPriority(ADC_IRQn, 0);
 
   //disable all interrupts except RXEND
+  //Only accept end of receive buffer interrupt
   ADC->ADC_IDR=~(1<<27);
 
   //enable DMA-driven ADC RXEND interrupt
@@ -103,18 +106,18 @@ void InstrumentPowerDue::startADC(){
   //Initialize packet for DMA's buffer pointer
   currentTime = micros()-timeReference;
 
-  buffer[currentBuffer][0] = SYNC_BLOCK;
-  buffer[currentBuffer][1] = SYNC_BLOCK;
-  buffer[currentBuffer][2] = readTaskID();
-  buffer[currentBuffer][3] = (uint16_t)(currentTime >> 16);
-  buffer[currentBuffer][4] = (uint16_t)(0x0000FFFF & currentTime);
+  buffer[currentBuffer][0] = SYNC_BLOCK; //2bytes 5555
+  buffer[currentBuffer][1] = SYNC_BLOCK; //2bytes 5555
+  buffer[currentBuffer][2] = readTaskID(); 
+  buffer[currentBuffer][3] = (uint16_t)(currentTime >> 16); //upper half 16bits
+  buffer[currentBuffer][4] = (uint16_t)(0x0000FFFF & currentTime); //lower half 16bits
   buffer[currentBuffer][5] = (BUFFER_SIZE_FOR_USB-HEADER_SIZE);
-  buffer[currentBuffer][6] |= (uint16_t)0x1000;
+  buffer[currentBuffer][6] |= (uint16_t)0x1000; //2bytes making the 13th bit 1
 
   // ADC writes to the DMA buffer
-  ADC->ADC_RPR=(uint32_t)(&(buffer[currentBuffer][(HEADER_SIZE/2)-1]));
+  ADC->ADC_RPR=(uint32_t)(&(buffer[currentBuffer][(HEADER_SIZE/2)-1])); //write 126 samples each 2 bytes, for 4 channels
 
-  ADC->ADC_RCR=(BUFFER_SIZE_FOR_USB-HEADER_SIZE);
+  ADC->ADC_RCR=(BUFFER_SIZE_FOR_USB-HEADER_SIZE); //How many bytes to write
 
   // Initialize packet for DMA's next buffer pointer
   // ---------------
@@ -127,7 +130,7 @@ void InstrumentPowerDue::startADC(){
   buffer[nextBuffer][6] |= (uint16_t)0x1000;
 
   // next DMA buffer
-  ADC->ADC_RNPR=(uint32_t)(&(buffer[nextBuffer][(HEADER_SIZE/2)-1]));
+  ADC->ADC_RNPR=(uint32_t)(&(buffer[nextBuffer][(HEADER_SIZE/2)]));
 
   //next dma receive counter
   ADC->ADC_RNCR=(BUFFER_SIZE_FOR_USB-HEADER_SIZE);
@@ -237,10 +240,9 @@ bool InstrumentPowerDue::bufferReady(){
   return currentBuffer!=nextBuffer;
 }
 
-void InstrumentPowerDue::writeBuffer(HardwareSerial * port){
+void InstrumentPowerDue::writeBuffer(Serial_ * port){
   int i=6;
   // send it
-  // ADC takes to start
   while(((buffer[currentBuffer][i])>>12)!=1){
     i++;
   };
@@ -313,7 +315,6 @@ void InstrumentPowerDue::bufferFullInterrupt(){
   // Increment Buffers
   nextBuffer=(currentBuffer+1)&(NUM_BUFFERS-1);
 
-
   buffer[nextBuffer][0] = SYNC_BLOCK;
   buffer[nextBuffer][1] = SYNC_BLOCK;
   buffer[nextBuffer][2] = currentTask;
@@ -325,6 +326,10 @@ void InstrumentPowerDue::bufferFullInterrupt(){
 
   //next dma receive counter
   ADC->ADC_RNCR=(BUFFER_SIZE_FOR_USB-HEADER_SIZE);
+
+  // Send Queue
+  BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+  xQueueSendToBackFromISR( xQueue, (void *)&currentBuffer, &xHigherPriorityTaskWoken );
 }
 
 void InstrumentPowerDue::taskIdValidTrigger(){
@@ -336,6 +341,11 @@ void InstrumentPowerDue::taskIdValidTrigger(){
 
   startSampling();
 }
+
+ void UARTClass::callback(Uart *pUart) {
+   BaseType_t xHigherPriorityTaskWoken;
+   xQueueSendFromISR( PowerDue.RxQueue, (void *)&_pUart->UART_RHR, &xHigherPriorityTaskWoken )
+  }
 
 void ADC_Handler()
 {
@@ -349,6 +359,99 @@ void ADC_Handler()
     return;
   }
 
+}
+
+bool InstrumentPowerDue::writeAverage(void *packet){
+  int m = 6;
+  int j = 0;
+  uint16_t count1 = 0;
+  uint16_t count2 = 0;
+  uint16_t count3 = 0;
+  uint16_t count4 = 0;
+  uint32_t total1 = 0;
+  uint32_t total2 = 0;
+  uint32_t total3 = 0;
+  uint32_t total4 = 0;
+
+  while(((buffer[currentBuffer][m])>>12)!=1){
+    m++;
+  };
+  m-=6;
+  if(m){
+    buffer[currentBuffer][5+m] = (buffer[currentBuffer][5]-2*m);
+    //buffer[currentBuffer][4+m] = buffer[currentBuffer][4];
+    //buffer[currentBuffer][3+m] = buffer[currentBuffer][3];
+    buffer[currentBuffer][2+m] = buffer[currentBuffer][2];
+    //buffer[currentBuffer][1+m] = buffer[currentBuffer][1];
+    //buffer[currentBuffer][0+m] = buffer[currentBuffer][0];
+  }
+   
+  buffer_size = ((buffer[currentBuffer][5]-2*m)/2);
+
+	while ( buffer_size > 0){ 
+    
+	    if (buffer_size > 0){
+	      total1 = total1 + (buffer[currentBuffer][(6+m) + j] & 0b0000111111111111) ;
+	      buffer_size = buffer_size - 1;
+	      count1++; 	 
+	    }
+	    if (buffer_size > 0){
+	      total2 = total2 + (buffer[currentBuffer][(7+m)+ j] & 0b0000111111111111);
+	      buffer_size = buffer_size - 1;
+	      count2++;
+	    }
+	    if (buffer_size > 0){
+	      total3 = total3 + (buffer[currentBuffer][(8+m) + j]& 0b0000111111111111);
+	      buffer_size = buffer_size - 1;
+	      count3++;
+	    }
+	    if (buffer_size > 0 ){
+	      total4 = total4 + (buffer[currentBuffer][(9+m) + j]& 0b0000111111111111);
+	      buffer_size = buffer_size - 1;
+	      count4++;
+	    }
+	    j = j+4;
+	}
+    
+  //buffer[currentBuffer][5+m] =  ((BUFFER_SIZE_FOR_AVERAGE-HEADER_SIZE)-2*m);
+ 	if (count1 && count2 && count3 && count4){ 
+		total1 /= count1;
+		total2 /= count2;
+		total3 /= count3;
+		total4 /= count4;
+	  
+		*(uint8_t *)packet = (uint8_t)buffer[currentBuffer][2+m]; 
+		// *(uint8_t *)(packet+1) = (uint8_t)(((0x1000) |((uint16_t)(total1))) >> 8 );
+		// *(uint8_t *)(packet+2) = (uint8_t)(((uint16_t)total1) & 0x00FF);
+		// *(uint8_t *)(packet+3) = (uint8_t)(((0x2000) |((uint16_t)(total2))) >> 8 );
+		// *(uint8_t *)(packet+4) = (uint8_t)(((uint16_t)total2) & 0x00FF);
+		// *(uint8_t *)(packet+5) = (uint8_t)(((0x3000) |((uint16_t)(total3))) >> 8 );
+		// *(uint8_t *)(packet+6) = (uint8_t)(((uint16_t)total3) & 0x00FF);
+		// *(uint8_t *)(packet+7) = (uint8_t)(((0x7000) |((uint16_t)(total4))) >> 8 );
+		// *(uint8_t *)(packet+8) = (uint8_t)(((uint16_t)total4) & 0x00FF);
+		*(uint8_t *)(packet+1) = (uint8_t)(((buffer[currentBuffer][6+m] & 0xF000) |((uint16_t)(total1))) >> 8 );
+		*(uint8_t *)(packet+2) = (uint8_t)(((uint16_t)total1) & 0x00FF);
+		*(uint8_t *)(packet+3) = (uint8_t)(((buffer[currentBuffer][7+m] & 0xF000) |((uint16_t)(total2))) >> 8 );
+		*(uint8_t *)(packet+4) = (uint8_t)(((uint16_t)total2) & 0x00FF);
+		*(uint8_t *)(packet+5) = (uint8_t)(((buffer[currentBuffer][8+m] & 0xF000) |((uint16_t)(total3))) >> 8 );
+		*(uint8_t *)(packet+6) = (uint8_t)(((uint16_t)total3) & 0x00FF);
+		*(uint8_t *)(packet+7) = (uint8_t)(((buffer[currentBuffer][9+m] & 0xF000) |((uint16_t)(total4))) >> 8 );
+		*(uint8_t *)(packet+8) = (uint8_t)(((uint16_t)total4) & 0x00FF);
+		// *(uint16_t *)(packet+1) = (buffer[currentBuffer][6+m] & 0b1111000000000000) | total1;
+		// *(uint16_t *)(packet+3) = (buffer[currentBuffer][7+m] & 0b1111000000000000) | total2;
+		// *(uint16_t *)(packet+5) = (buffer[currentBuffer][8+m] & 0b1111000000000000) | total3;
+		// *(uint16_t *)(packet+7) = (buffer[currentBuffer][9+m] & 0b1111000000000000) | total4;
+	}
+
+	currentBuffer=(currentBuffer+1)&(NUM_BUFFERS-1);
+	return (count1 && count2 && count3 && count4);
+}
+
+int InstrumentPowerDue::queueReceive(){
+  int bufferNumber;
+  portBASE_TYPE xStatus = xQueueReceive(xQueue, &bufferNumber, portMAX_DELAY);
+  //if( xStatus != pdPASS ) SerialUSB.println( "Could not receive from the queue.\r\n" );
+  return bufferNumber;
 }
 
 InstrumentPowerDue PowerDue;

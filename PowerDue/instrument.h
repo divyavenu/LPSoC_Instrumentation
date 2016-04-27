@@ -40,13 +40,7 @@
 #define TASK_ID_PIN_3 48
 #define TASK_ID_VALID_PIN 44  //PC19
 
-//#define COMMAND_PIN 44 //B14 GPIO 6
-
-
-#define RX_PIN 15  //PD5 For interrupt when receiving commands
-
-
-//packet = timestamp 4 bytes, task ID 2 bytes to maintain even symmetry
+//packet = timestamp 4 bytes, task ID 2 bytes to maintain even symmetry????
 #define SYNC_BLOCK 0x5555
 
 #define HEADER_SIZE 12
@@ -68,14 +62,13 @@
 #define PADDING 10
 // Has to be a power of 2
 #define NUM_BUFFERS 4
-
-
-#define COMMAND_SIZE 2
-
+#define BUFFER_SIZE_FOR_AVERAGE (2*4)+HEADER_SIZE // in bytes
+#define NUM_QUEUES 4
+#define RECIEVE_QUEUE_SIZE 8
 
 #include "Arduino.h"
 #include <Wire.h>
-
+#include <FreeRTOS_ARM.h>
 
 class InstrumentPowerDue
 {
@@ -88,24 +81,23 @@ class InstrumentPowerDue
     void startSampling();
     void stopSampling();
     void startADC();
-    void SerialInit();
-    void CommandInterpreter();
     bool bufferReady();
-    void writeBuffer(HardwareSerial * port);
+    void writeBuffer(Serial_ * port);
     void bufferFullInterrupt();
     void taskIdValidTrigger();
-    void USART3_Handler();
     uint16_t readTaskID();
-
+    bool writeAverage(void *packet);
+    int queueReceive();
+    QueueHandle_t RxQueue;
 
   private:
     volatile bool isSampling, isInterrupted;
     uint16_t buffer[NUM_BUFFERS][BUFFER_SIZE_FOR_USB+PADDING];
-    uint8_t command[COMMAND_SIZE];
-    volatile int currentBuffer, nextBuffer, commandPointer;
+    volatile int currentBuffer, nextBuffer;
     volatile uint16_t currentTask;
     uint32_t timeReference, currentTime;
-
+    uint16_t buffer_size;
+    QueueHandle_t xQueue;
 };
 
 extern InstrumentPowerDue PowerDue;
