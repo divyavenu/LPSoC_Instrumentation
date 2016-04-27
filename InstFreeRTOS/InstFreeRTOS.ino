@@ -2,9 +2,7 @@
 #include <PowerDue.h>
 #include <FreeRTOS_ARM.h>
 
-#define SAMPLE_RATE 80000
-#define SAMPLE_SIZE 9
-#define SAMPLE_NUMBER 10
+#define SAMPLE_RATE 50000
 
 char cmd[5];
 int cmdCounter;
@@ -45,7 +43,7 @@ static void commandInterpreter(void *arg) {
 
 //------------------------------------------------------------------------------
 /* PacketSender task stores the averaged samples in the packet and sends packets to the terget */
-static void packetSender(void *arg) {
+/*static void packetSender(void *arg) {
   char sync[5] = "5566";
   char packet[91];
   
@@ -63,15 +61,16 @@ static void packetSender(void *arg) {
     }    
   }
 }
-
+*/
 //------------------------------------------------------------------------------
 void setup(){
   cmdCounter = 0;
   cmdWrite = false;
-  startFlag = false;
+
   parCounter = 0;
   parWrite = false;
   parLen = 0;
+  startFlag = false;
   
   Serial3.begin(9600);
   while(!Serial3);
@@ -82,7 +81,7 @@ void setup(){
 //  while(!SerialUSB);
   
   xTaskCreate(commandInterpreter, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, NULL);
-  xTaskCreate(packetSender, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, NULL); 
+ // xTaskCreate(packetSender, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, NULL); 
   
   vTaskStartScheduler();
   SerialUSB.println("Insufficient RAM");
