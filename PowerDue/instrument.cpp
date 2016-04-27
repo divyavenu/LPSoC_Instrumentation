@@ -344,7 +344,7 @@ void InstrumentPowerDue::taskIdValidTrigger(){
 
  void UARTClass::callback(Uart *pUart) {
    BaseType_t xHigherPriorityTaskWoken;
-   xQueueSendFromISR( PowerDue.RxQueue, (void *)&_pUart->UART_RHR, &xHigherPriorityTaskWoken )
+   xQueueSendFromISR( PowerDue.RxQueue, (void *)&_pUart->UART_RHR, &xHigherPriorityTaskWoken );
   }
 
 void ADC_Handler()
