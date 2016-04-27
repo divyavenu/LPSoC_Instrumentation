@@ -63,8 +63,9 @@
 // Has to be a power of 2
 #define NUM_BUFFERS 4
 #define BUFFER_SIZE_FOR_AVERAGE (2*4)+HEADER_SIZE // in bytes
-#define MAX_TASKS 11
+#define MAX_TASKS 10
 #define NUM_STORAGE 2
+#define NUM_BYTES 12
 
 #include "Arduino.h"
 #include <Wire.h>
@@ -100,10 +101,12 @@ class InstrumentPowerDue
     volatile uint16_t currentTask;
     uint32_t timeReference, currentTime;
     uint32_t accumTotal[NUM_STORAGE][MAX_TASKS][4];
-    uint16_t accumCount[NUM_STORAGE][MAX_TASKS];
+    // yalei - changed uint16_t to uint32_t
+    // uint16_t accumCount[NUM_STORAGE][MAX_TASKS];
+    uint32_t accumCount[NUM_STORAGE][MAX_TASKS];
     uint8_t accumTaskId[NUM_STORAGE][MAX_TASKS];
     uint8_t numberOfTasks[NUM_STORAGE];
-    uint8_t packet[MAX_TASKS][11];
+    uint8_t packet[MAX_TASKS][NUM_BYTES];
     uint8_t packetSize;
     volatile uint8_t currentStorage;
 

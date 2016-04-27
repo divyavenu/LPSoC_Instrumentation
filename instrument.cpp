@@ -144,6 +144,7 @@ void InstrumentPowerDue::startADC(){
 
   //start adc
   ADC->ADC_CR=2;
+  // ADC->ADC_CR=0;
 }
 
 // Changes the gain of a specific channel. Valid gain values are
@@ -235,6 +236,7 @@ void InstrumentPowerDue::startSampling(){
 void InstrumentPowerDue::stopSampling(){
   isSampling = false;
   TC_Stop(TC0, 0);
+
 }
 
 // bool InstrumentPowerDue::bufferReady(){
@@ -493,29 +495,45 @@ void InstrumentPowerDue::sendHeader(USARTClass *port){
 	currentStorage = (currentStorage+1)&(NUM_STORAGE-1);
 	xSemaphoreGive(xSemaphore);
 
+  // SYNC bytes comes before the header
+  // char sync[5] = "5666"; 
+  // port->write(sync, 4);
 	port->write(numberOfTasks[sid]);
 
 	// Creating Packet
 	for (int i = 0; i < numberOfTasks[sid]; i++){
-		packet[i][0] = accumTaskId[sid][i];
+    // first byte: TaskID (4 bits) + lower half of the first byte of accumCount (4 bits)
+		packet[i][0] = (accumTaskId[sid][i] << 4) || (0x0F && (uint8_t)(accumCount[sid][i] >> 24));
+    // byte index 1,2,3: lower 3 bytes of accumCount
+    packet[i][1] = (uint8_t)(accumCount[sid][i] >> 16);
+    packet[i][2] = (uint8_t)(accumCount[sid][i] >> 8);
+    packet[i][3] = (uint8_t)(accumCount[sid][i]);
+
+    // 8 bytes of data, excluding channel ID
+    // byte index 5,7, 9, 11
+    int offset = 3;
 		for (int j = 0; j < 4; j++){
+      // calculate
 			accumTotal[sid][i][j] /= accumCount[sid][i];
 			if (accumTotal[sid][i][j] > 4095){
-				packet[i][j*2+1] = 0xFF;
-				packet[i][j*2+2] = 0xFF;			
+				packet[i][j*2+1+offset] = 0xFF;
+				packet[i][j*2+2+offset] = 0xFF;			
 			} else {
-				packet[i][j*2+1] = (uint8_t)(accumTotal[sid][i][j] >> 8);
-				packet[i][j*2+2] = (uint8_t)(accumTotal[sid][i][j]);
+				packet[i][j*2+1+offset] = (uint8_t)(accumTotal[sid][i][j] >> 8);
+				packet[i][j*2+2+offset] = (uint8_t)(accumTotal[sid][i][j]);
 			}
 		}
-		packet[i][1] |= 0x10;
-		packet[i][3] |= 0x20;
-		packet[i][5] |= 0x30;
-		packet[i][7] |= 0x70;
-		packet[i][9] = (uint8_t)(accumCount[sid][i] >> 8);
-		packet[i][10] = (uint8_t)(accumCount[sid][i]);
+    // channel Id for all channels
+		packet[i][offset+1] |= 0x10;
+		packet[i][offset+3] |= 0x20;
+		packet[i][offset+5] |= 0x30;
+		packet[i][offset+7] |= 0x70;
+
+		// packet[i][9] = (uint8_t)(accumCount[sid][i] >> 8);
+		// packet[i][10] = (uint8_t)(accumCount[sid][i]);
 	}
-	packetSize = numberOfTasks[sid] * 11;
+	// packetSize = numberOfTasks[sid] * 11;
+  packetSize = numberOfTasks[sid] * NUM_BYTES;
 
 	// Initialize Storage
 	for (int i = 0; i < MAX_TASKS; i++){
@@ -537,8 +555,9 @@ void InstrumentPowerDue::initStorage(){
 	xSemaphoreTake(xSemaphore, portMAX_DELAY);	
 	for (int sid = 0; sid < NUM_STORAGE; sid++){
 		for (int i = 0; i < MAX_TASKS; i++){
-			for (int j = 0; j < 4; j++)
+			for (int j = 0; j < 4; j++) {
 				accumTotal[sid][i][j] = 0;
+      }
 			accumCount[sid][i] = 0;
 			accumTaskId[sid][i] = 0xFF;
 		}
