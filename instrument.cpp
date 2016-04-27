@@ -496,8 +496,8 @@ void InstrumentPowerDue::sendHeader(USARTClass *port){
 	xSemaphoreGive(xSemaphore);
 
   // SYNC bytes comes before the header
-  // char sync[5] = "5666"; 
-  // port->write(sync, 4);
+  char sync[5] = "5566"; 
+  port->write(sync, 4);
 	port->write(numberOfTasks[sid]);
 
 	// Creating Packet
