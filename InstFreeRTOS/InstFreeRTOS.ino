@@ -4,6 +4,8 @@
 
 #define SAMPLE_RATE 50000
 
+TaskHandle_t task1,task2;  
+
 char cmd[5];
 int cmdCounter;
 boolean cmdWrite;
@@ -16,7 +18,7 @@ int parLen;
 /* Command Interpreter task */
 static void commandInterpreter(void *arg) {
   while(1) {
-//    if (Serial3.available()){
+/*//    if (Serial3.available()){
 //      char c = Serial3.read();
 //      command_parser(c);
 //    } else {
@@ -34,20 +36,66 @@ static void commandInterpreter(void *arg) {
 //              SerialUSB.println(data);
             // pcRxedMessage now points to the struct AMessage variable posted
             // by vATask.
-        }
-    } 
+        }*/
+        SerialUSB.println("First task");
+     command_parser('*');
+     command_parser('S');
+     command_parser('T');
+     command_parser('R');
+     SerialUSB.println("*STR");
+     command_parser('*');
+     command_parser('S');
+     command_parser('T');
+     command_parser('R');
+     SerialUSB.println("*STR");
+     command_parser('*');
+     command_parser('S');
+     command_parser('T');
+     command_parser('R');
+     SerialUSB.println("*STR");
+     command_parser('*');
+     command_parser('S');
+     command_parser('T');
+     command_parser('R');
+     SerialUSB.println("*STR");
+     command_parser('*');
+     command_parser('S');
+     command_parser('T');
+     command_parser('P');
+     SerialUSB.println("*STP");
+     command_parser('*');
+     command_parser('S');
+     command_parser('T');
+     command_parser('P');
+     SerialUSB.println("*STP");
+     command_parser('*');
+     command_parser('S');
+     command_parser('T');
+     command_parser('P');
+     SerialUSB.println("*STP");
+     command_parser('*');
+     command_parser('S');
+     command_parser('T');
+     command_parser('P');
+     SerialUSB.println("*STP");
+     command_parser('*');
+     command_parser('S');
+     command_parser('T');
+     command_parser('P');
+     } 
   }
-}
+//}
 
 //------------------------------------------------------------------------------
 /* Accumlator Task */
 static void accumulator(void *arg) {
   while(1) {
+    SerialUSB.println("2nd task");
     int bid = PowerDue.bufferReady();
     PowerDue.accumStorage(bid);   
   }
 }
-TaskHandle_t xHandle1,xHandle2;
+
 //------------------------------------------------------------------------------
 void setup(){
   cmdCounter = 0;
@@ -56,15 +104,12 @@ void setup(){
   parWrite = false;
   parLen = 0;
   startFlag = false;
-
   pinMode(48,INPUT);
-  
   Serial3.begin(9600);
   while(!Serial3);
   PowerDue.init(SAMPLE_RATE);
-  
-  xTaskCreate(commandInterpreter, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, &xHandle1);
-  xTaskCreate(accumulator, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, &xHandle2); 
+  xTaskCreate(commandInterpreter, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1,&task1);
+  xTaskCreate(accumulator, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, &task2); 
   
   vTaskStartScheduler();
   SerialUSB.println("Insufficient RAM");
@@ -72,12 +117,15 @@ void setup(){
 }
 
 void loop(){
+  SerialUSB.println("Idle task");
 while(digitalRead(48))
 {
+  SerialUSB.println("In sleep mode");
   pmc_enable_sleepmode(0);
 }
-vTaskResume(xHandle1);
-vTaskResume(xHandle2);
+SerialUSB.println("LEFT SLEEP MODE LEFT SLEEP MODE LEFT SLEEP MODE LEFT SLEEP MODE");
+vTaskResume(task1);
+vTaskResume(task2);
 }
 
 //------------------------------------------------------------------------------
@@ -141,8 +189,8 @@ int command_interpreter(char* cmd_header) {
     startFlag = false;
     PowerDue.stopSampling();
     PowerDue.initStorage();
-    vTaskSuspend(xHandle1);
-    vTaskSuspend(xHandle2);
+    vTaskSuspend(task2);
+    vTaskSuspend(task1);
   }
   else if (strncmp(cmd_header, "*TRG", 4) == 0) {
     par_len = 4;
