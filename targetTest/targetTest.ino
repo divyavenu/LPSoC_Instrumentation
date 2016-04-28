@@ -68,40 +68,43 @@ static void Thread2(void* arg) {
   
   while (1) {
     if (Serial3.available()){
-      nTask = 0;
-      memset(buf, '0', 122);
-//      Serial3.readBytes(sync, 4);
-//      SerialUSB.print("SYNC: ");
-//      for(int i = 0; i < 4; i++){
-//        SerialUSB.print(sync[i]);
+      char data = Serial3.read();
+      SerialUSB.print(data, HEX);
+      SerialUSB.print(" ");
+//      nTask = 0;
+//      memset(buf, '0', 122);
+////      Serial3.readBytes(sync, 4);
+////      SerialUSB.print("SYNC: ");
+////      for(int i = 0; i < 4; i++){
+////        SerialUSB.print(sync[i]);
+////      }
+////      SerialUSB.println();
+//      nTask = Serial3.read();
+//      SerialUSB.print("#ofTask: ");
+//      SerialUSB.println(nTask, DEC);
+//      
+//      while (!Serial3.available());
+//      Serial3.readBytes(buf, nTask*11);
+//      serialFlush();
+//      
+//      SerialUSB.println("<PACKET>");
+//      //SerialUSB.write(buf, (nTask)*11);
+//      for(int i = 0; i < nTask; i++){
+//        SerialUSB.print(buf[i*11]&0x07, DEC);
+//        SerialUSB.print(": [ ");
+//        for(int j = 0; j < 4; j++){
+////          SerialUSB.print(buf[i*11+j*2+1], HEX);
+////          SerialUSB.print(buf[i*11+j*2+2], HEX); 
+//          SerialUSB.print(buf[i*11+j*2+1]>>4, DEC);
+//          SerialUSB.print("/");      
+//          SerialUSB.print(((uint16_t)buf[i*11+j*2+1]&0x000F)<<8|(uint16_t)buf[i*11+j*2+2], DEC);
+//          SerialUSB.print(" ");
+//        }
+//        SerialUSB.print("] ");
+//        SerialUSB.println(((uint16_t)buf[i*11+9])<<8|(uint16_t)buf[i*11+10], DEC);        
 //      }
 //      SerialUSB.println();
-      nTask = Serial3.read();
-      SerialUSB.print("#ofTask: ");
-      SerialUSB.println(nTask, DEC);
-      
-      while (!Serial3.available());
-      Serial3.readBytes(buf, nTask*11);
-      serialFlush();
-      
-      SerialUSB.println("<PACKET>");
-      //SerialUSB.write(buf, (nTask)*11);
-      for(int i = 0; i < nTask; i++){
-        SerialUSB.print(buf[i*11]&0x07, DEC);
-        SerialUSB.print(": [ ");
-        for(int j = 0; j < 4; j++){
-//          SerialUSB.print(buf[i*11+j*2+1], HEX);
-//          SerialUSB.print(buf[i*11+j*2+2], HEX); 
-          SerialUSB.print(buf[i*11+j*2+1]>>4, DEC);
-          SerialUSB.print("/");      
-          SerialUSB.print(((uint16_t)buf[i*11+j*2+1]&0x000F)<<8|(uint16_t)buf[i*11+j*2+2], DEC);
-          SerialUSB.print(" ");
-        }
-        SerialUSB.print("] ");
-        SerialUSB.println(((uint16_t)buf[i*11+9])<<8|(uint16_t)buf[i*11+10], DEC);        
-      }
-      SerialUSB.println();
-      
+//      
     } else {
       taskYIELD();
     }
