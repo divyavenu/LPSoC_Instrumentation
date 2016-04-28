@@ -66,6 +66,9 @@
 #define MAX_TASKS 10
 #define NUM_STORAGE 2
 #define NUM_BYTES 12
+#define RECIEVE_QUEUE_SIZE 8
+
+
 
 #include "Arduino.h"
 #include <Wire.h>
@@ -93,6 +96,7 @@ class InstrumentPowerDue
     void sendHeader(USARTClass *port);
     void sendPacket(USARTClass *port);
     void initStorage();
+    QueueHandle_t RxQueue;
 
   private:
     volatile bool isSampling, isInterrupted;

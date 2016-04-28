@@ -18,7 +18,11 @@ InstrumentPowerDue::InstrumentPowerDue():currentBuffer(0), nextBuffer(0), curren
 void InstrumentPowerDue::init(int sample_rate){
   // Start I2C
   Wire.begin();
+
+  // queue init
   xQueue = xQueueCreate(NUM_BUFFERS, sizeof(currentBuffer));
+  RxQueue = xQueueCreate(RECIEVE_QUEUE_SIZE, sizeof(char));
+
   xSemaphore = xSemaphoreCreateMutex();
   initStorage();
 
@@ -567,5 +571,11 @@ void InstrumentPowerDue::initStorage(){
 	xSemaphoreGive(xSemaphore);
 	return;	
 }
+
+
+void UARTClass::callback(Uart *pUart) {
+  BaseType_t xHigherPriorityTaskWoken;
+  xQueueSendFromISR( PowerDue.RxQueue, (void *)&_pUart->UART_RHR, &xHigherPriorityTaskWoken );
+ }
 
 InstrumentPowerDue PowerDue;
