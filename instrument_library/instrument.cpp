@@ -507,7 +507,7 @@ void InstrumentPowerDue::sendHeader(USARTClass *port){
 	// Creating Packet
 	for (int i = 0; i < numberOfTasks[sid]; i++){
     // first byte: TaskID (4 bits) + lower half of the first byte of accumCount (4 bits)
-		packet[i][0] = (accumTaskId[sid][i] << 4) || (0x0F && (uint8_t)(accumCount[sid][i] >> 24));
+		packet[i][0] = (accumTaskId[sid][i] << 4) | (0x0F & (uint8_t)(accumCount[sid][i] >> 24));
     // byte index 1,2,3: lower 3 bytes of accumCount
     packet[i][1] = (uint8_t)(accumCount[sid][i] >> 16);
     packet[i][2] = (uint8_t)(accumCount[sid][i] >> 8);
