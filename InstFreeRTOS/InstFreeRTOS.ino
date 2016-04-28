@@ -47,7 +47,7 @@ static void accumulator(void *arg) {
     PowerDue.accumStorage(bid);   
   }
 }
-
+TaskHandle_t xHandle1,xHandle2;
 //------------------------------------------------------------------------------
 void setup(){
   cmdCounter = 0;
@@ -56,13 +56,15 @@ void setup(){
   parWrite = false;
   parLen = 0;
   startFlag = false;
+
+  pinMode(48,INPUT);
   
   Serial3.begin(9600);
   while(!Serial3);
   PowerDue.init(SAMPLE_RATE);
   
-  xTaskCreate(commandInterpreter, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, NULL);
-  xTaskCreate(accumulator, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, NULL); 
+  xTaskCreate(commandInterpreter, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, &xHandle1);
+  xTaskCreate(accumulator, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, &xHandle2); 
   
   vTaskStartScheduler();
   SerialUSB.println("Insufficient RAM");
@@ -70,7 +72,12 @@ void setup(){
 }
 
 void loop(){
-
+while(digitalRead(48))
+{
+  pmc_enable_sleepmode(0);
+}
+vTaskResume(xHandle1);
+vTaskResume(xHandle2);
 }
 
 //------------------------------------------------------------------------------
@@ -134,6 +141,8 @@ int command_interpreter(char* cmd_header) {
     startFlag = false;
     PowerDue.stopSampling();
     PowerDue.initStorage();
+    vTaskSuspend(xHandle1);
+    vTaskSuspend(xHandle2);
   }
   else if (strncmp(cmd_header, "*TRG", 4) == 0) {
     par_len = 4;
