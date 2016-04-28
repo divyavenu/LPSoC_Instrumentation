@@ -2,87 +2,72 @@
 #include <PowerDue.h>
 #include <FreeRTOS_ARM.h>
 
-#define SAMPLE_RATE 80000
-#define SAMPLE_SIZE 9
-#define SAMPLE_NUMBER 10
+#define SAMPLE_RATE 50000
 
 char cmd[5];
 int cmdCounter;
 boolean cmdWrite;
 boolean startFlag;
-
 char parameter[10];
 int parCounter;
 boolean parWrite;
 int parLen;
 
+TaskHandle_t x1Handle,x2Handle;
+
 /* Command Interpreter task */
 static void commandInterpreter(void *arg) {
   while(1) {
-    /*if (Serial3.available()){
-      char c = Serial3.read();
-      command_parser(c);
-    } else {
-      taskYIELD();
-    }*/
+//    if (Serial3.available()){
+//      char c = Serial3.read();
+//      command_parser(c);
+//    } else {
+//      taskYIELD();
+//    }
+
     char data;
-        if( PowerDue.RxQueue != 0 )
+    if( PowerDue.RxQueue != 0 )
     {
         // Receive a message on the created queue.  Block for 10 ticks if a
         // message is not immediately available.
         if( xQueueReceive( PowerDue.RxQueue, &( data ), portMAX_DELAY) )
         {
               command_parser(data);
-              SerialUSB.println(data);
+//              SerialUSB.println(data);
             // pcRxedMessage now points to the struct AMessage variable posted
             // by vATask.
         }
-    }
-
-
+    } 
   }
 }
 
 //------------------------------------------------------------------------------
-/* PacketSender task stores the averaged samples in the packet and sends packets to the terget */
-static void packetSender(void *arg) {
-  char sync[5] = "5566";
-  char packet[91];
-  
+/* Accumlator Task */
+static void accumulator(void *arg) {
   while(1) {
-    for (int i = 0; i < SAMPLE_NUMBER; i++){
-      // Wait until it gets a queue which sent by the bufferFullInterrupt 
-      PowerDue.queueReceive();
-      // Skip average if there is no sampling data in the current buffer
-      if (!PowerDue.writeAverage(packet+i*SAMPLE_SIZE))
-        i--;  
-    } 
-    if (startFlag) {
-      Serial3.write(sync, 4);
-      Serial3.write(packet, SAMPLE_SIZE*SAMPLE_NUMBER);
-    }    
+    int bid = PowerDue.bufferReady();
+    PowerDue.accumStorage(bid);   
   }
 }
-
 //------------------------------------------------------------------------------
 void setup(){
   cmdCounter = 0;
   cmdWrite = false;
-  startFlag = false;
   parCounter = 0;
   parWrite = false;
   parLen = 0;
+  startFlag = false;
+
+  pinMode(48,INPUT);
+  
   
   Serial3.begin(9600);
   while(!Serial3);
   PowerDue.init(SAMPLE_RATE);
-//  PowerDue.startSampling();
-//  startFlag = true;
-//  SerialUSB.begin(0);
-//  while(!SerialUSB);
+
   
-  xTaskCreate(commandInterpreter, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, NULL);
-  xTaskCreate(packetSender, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, NULL); 
+  xTaskCreate(commandInterpreter, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, &x1Handle);
+  xTaskCreate(accumulator, NULL, 8*configMINIMAL_STACK_SIZE, 0, 1, &x2Handle); 
   
   vTaskStartScheduler();
   SerialUSB.println("Insufficient RAM");
@@ -90,7 +75,12 @@ void setup(){
 }
 
 void loop(){
-
+while(digitalRead(48))
+{
+  pmc_enable_sleepmode(0);
+}
+vTaskResume(x1Handle);
+vTaskResume(x2Handle);
 }
 
 //------------------------------------------------------------------------------
@@ -141,8 +131,9 @@ int command_interpreter(char* cmd_header) {
   int par_len = 0;
   if (strncmp(cmd_header, "*STR", 4) == 0) {
     par_len = 0;
-    startFlag = true;
     PowerDue.startSampling();
+    PowerDue.initStorage();
+    startFlag = true;
   }
   else if (strncmp(cmd_header, "*SMP", 4) == 0) {
     par_len = 4;
@@ -152,11 +143,21 @@ int command_interpreter(char* cmd_header) {
     par_len = 0;
     startFlag = false;
     PowerDue.stopSampling();
+    PowerDue.initStorage();
+    vTaskSuspend(x1Handle);
+    vTaskSuspend(x2Handle);
   }
   else if (strncmp(cmd_header, "*TRG", 4) == 0) {
     par_len = 4;
   }
-  
+  else if (strncmp(cmd_header, "*RDY", 4) == 0) {
+    par_len = 4;
+    if (startFlag){
+      PowerDue.sendHeader(&Serial3);
+      PowerDue.sendPacket(&Serial3);
+    }
+  }  
   return par_len;
 }
+
 
