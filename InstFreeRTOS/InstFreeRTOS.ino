@@ -1,6 +1,9 @@
 #define INSTRUMENT_POWER_DUE
 #include <PowerDue.h>
 #include <FreeRTOS_ARM.h>
+#include <stdlib.h>     /* strtol */
+#include <cerrno>
+#include <climits>
 
 #define SAMPLE_RATE 50000
 
@@ -113,10 +116,12 @@ void command_parser(char c) {
       SerialUSB.println(parameter);
       parCounter = 0;
       parWrite = false;
+      command_interpreter(cmd);
     }
   }
 }
 
+// TODO: make this function de-coupled
 int command_interpreter(char* cmd_header) {
   int par_len = 0;
   if (strncmp(cmd_header, "*STR", 4) == 0) {
@@ -138,6 +143,21 @@ int command_interpreter(char* cmd_header) {
   else if (strncmp(cmd_header, "*TRG", 4) == 0) {
     par_len = 4;
   }
+  else if (strncmp(cmd_header, "*CSF", 4) == 0) {
+    // This is a temp fix.
+    if (par_len == 0 && parWrite) {
+      par_len = 2;
+    }
+    else {
+      int samplingRate = 0;
+      char_to_int(parameter, &samplingRate);
+      // kHz is the unit
+      samplingRate = samplingRate * 1000;
+      SerialUSB.print("sampling rate: ");
+      SerialUSB.println(samplingRate);
+      PowerDue.changeSamplingRate(samplingRate);
+    }
+  }
   else if (strncmp(cmd_header, "*RDY", 4) == 0) {
     par_len = 4;
     if (startFlag){
@@ -146,6 +166,37 @@ int command_interpreter(char* cmd_header) {
     }
   }  
   return par_len;
+}// end command_interpreter
+
+/** https://www.securecoding.cert.org/confluence/display/cplusplus/INT06-CPP.+Use+strtol()+
+  * or+a+related+function+to+convert+a+string+token+to+an+integer
+  * Safely converts char array to integer
+  */
+void char_to_int(char* chararray, int* number) {
+  long sl;
+  char *end_ptr;
+  errno = 0;
+   
+  sl = strtol(chararray, &end_ptr, 0);
+   
+  if (ERANGE == errno) {
+    SerialUSB.println("number out of range");
+  }
+  else if (sl > INT_MAX) {
+    SerialUSB.println("too large!");
+  }
+  else if (sl < INT_MIN) {
+    SerialUSB.println("too small");
+  }
+  else if (end_ptr == chararray) {
+    SerialUSB.println("not valid numeric input");
+  }
+  else if ('\0' != *end_ptr) {
+    SerialUSB.println("extra characters on input line");
+    }
+  else {
+    *number = static_cast<int>(sl);
+  }
 }
 
 
